@@ -229,6 +229,7 @@ func NewProxyServerDefault(config *options.ProxyServerConfig) (*ProxyServer, err
 			config.UDPIdleTimeout.Duration,
 		)
 		if err != nil {
+			s.failureEvent()
 			glog.Fatalf("Unable to create proxier: %v", err)
 		}
 		proxier = proxierUserspace
@@ -379,4 +380,9 @@ func tryIptablesProxy(iptver iptables.IptablesVersioner, kcompat iptables.Kernel
 
 func (s *ProxyServer) birthCry() {
 	s.Recorder.Eventf(s.Config.NodeRef, api.EventTypeNormal, "Starting", "Starting kube-proxy.")
+}
+
+func (s *ProxyServer) failureEvent() {
+	s.Recorder.Eventf(s.nodeRef, "Failed", "kube-proxy creation is failed.")
+	time.Sleep(100 * time.Millisecond)
 }

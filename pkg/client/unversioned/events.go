@@ -160,14 +160,20 @@ func (e *events) Search(objOrRef runtime.Object) (*api.EventList, error) {
 	}
 	stringRefKind := string(ref.Kind)
 	var refKind *string
+	//what about else case, not needed as nil check is done in GetFieldSelector?
 	if stringRefKind != "" {
 		refKind = &stringRefKind
 	}
 	stringRefUID := string(ref.UID)
 	var refUID *string
+	///what about else case, not needed as nil check is done in GetFieldSelector?
 	if stringRefUID != "" {
 		refUID = &stringRefUID
 	}
+	//Is it possible that if all Name, Namespace, refKind and refUID are nil then
+	// no need to call GetFieldSelector and fieldSelector could be constructed here
+	// and could be better for performance only if GetFieldSelector is called
+	// frequently witll all 4 nil params
 	fieldSelector := e.GetFieldSelector(&ref.Name, &ref.Namespace, refKind, refUID)
 	return e.List(api.ListOptions{FieldSelector: fieldSelector})
 }

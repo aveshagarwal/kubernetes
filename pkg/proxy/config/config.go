@@ -37,7 +37,7 @@ const (
 )
 
 // ServiceUpdate describes an operation of services, sent on the channel.
-// You can add or remove single services by sending an array of size one and Op == ADD|REMOVE.
+// You can add or remove single service by sending an array of size one and Op == ADD|REMOVE.
 // For setting the state of the system to a given state for this source configuration, set Services as desired and Op to SET,
 // which will reset the system state to that specified in this operation for this source channel.
 // To remove all services, set Services to empty array and Op to SET

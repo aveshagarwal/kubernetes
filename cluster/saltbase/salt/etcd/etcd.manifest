@@ -20,6 +20,8 @@
               "/bin/sh",
               "-c",
               "/usr/local/bin/etcd --listen-peer-urls http://127.0.0.1:{{ server_port }} --addr 127.0.0.1:{{ port }} --bind-addr 127.0.0.1:{{ port }} --data-dir /var/etcd/data{{ suffix }} 1>>/var/log/etcd{{ suffix }}.log 2>&1"
+              #this should be changed.
+		#"/usr/local/bin/etcd --advertise-client-urls http://127.0.0.1:4001 --listen-client-urls http://127.0.0.1:4001 --data-dir /var/etcd/data 1>>/var/log/etcd.log 2>&1"
             ],
     "livenessProbe": {
       "httpGet": {

@@ -284,3 +284,85 @@ func TestProxyServerWithCleanupAndExit(t *testing.T) {
 	assert.NotNil(t, proxyserver.Config)
 	assert.NotNil(t, proxyserver.IptInterface)
 }
+
+//This test verifies that New ProxyServer is not nill
+//for various values of proxy modes
+func TestProxyServerWithProxiers(t *testing.T) {
+
+	//expected proxy modes
+	proxymodes := []string{"userspace", "", "iptables"}
+
+	var proxyserver *ProxyServer
+	var err error
+	for _, value := range proxymodes {
+		config := NewProxyConfig()
+		config.ProxyMode = value
+		proxyserver, err = NewProxyServerDefault(config)
+		assert.Nil(t, err)
+		assert.NotNil(t, proxyserver)
+	}
+}
+
+//This test verifies returned ProxyServer is not nil
+//with different values (valid and invalid) of OOMScoreAdj
+func TestProxyServerWithOOMScoreAdj(t *testing.T) {
+
+	//-1000,0,1000 are valid values
+	//-2000, 2000 are invalid values (chosen arbitrarily)
+	oomScoreAdj := []int{-2000, -1000, 0, 1000, 2000}
+
+	var proxyserver *ProxyServer
+	var err error
+	for _, value := range oomScoreAdj {
+		config := NewProxyConfig()
+		config.OOMScoreAdj = value
+		proxyserver, err = NewProxyServerDefault(config)
+		assert.Nil(t, err)
+		assert.NotNil(t, proxyserver)
+	}
+}
+
+//This test performs sanity checks on NewProxyServerDefault and
+//verifies that returned config matches passed config properly
+func TestProxyServerWithConfigFlags(t *testing.T) {
+
+	//creates default config
+	config := NewProxyConfig()
+
+	//creates proxy server with default config
+	proxyserver, err := NewProxyServerDefault(config)
+
+	//verifies that proxyserver is not nil
+	assert.Nil(t, err)
+	assert.NotNil(t, proxyserver)
+
+	//verifies returned configuration
+	assert.Equal(t, proxyserver.Config.BindAddress, config.BindAddress)
+	assert.Equal(t, proxyserver.Config.Master, config.Master)
+	assert.Equal(t, proxyserver.Config.HealthzPort, config.HealthzPort)
+	assert.Equal(t, proxyserver.Config.HealthzBindAddress, config.HealthzBindAddress)
+	assert.Equal(t, proxyserver.Config.OOMScoreAdj, config.OOMScoreAdj)
+	assert.Equal(t, proxyserver.Config.ResourceContainer, config.ResourceContainer)
+	assert.Equal(t, proxyserver.Config.Kubeconfig, config.Kubeconfig)
+	assert.Equal(t, proxyserver.Config.PortRange, config.PortRange)
+	assert.Equal(t, proxyserver.Config.HostnameOverride, config.HostnameOverride)
+	assert.Equal(t, proxyserver.Config.ProxyMode, config.ProxyMode)
+	assert.Equal(t, proxyserver.Config.SyncPeriod, config.SyncPeriod)
+	assert.Equal(t, proxyserver.Config.MasqueradeAll, config.MasqueradeAll)
+	assert.Equal(t, proxyserver.Config.CleanupAndExit, config.CleanupAndExit)
+}
+
+//This test verifies that New ProxyServer is not nill
+//when ResourceContainer string is not set
+func TestProxyServerConfigWithResourceContainer(t *testing.T) {
+
+	config := NewProxyConfig()
+	config.ResourceContainer = ""
+
+	//create new proxyserver
+	proxyserver, err := NewProxyServerDefault(config)
+
+	//verify that proxyserver is not nill except error
+	assert.Nil(t, err)
+	assert.NotNil(t, proxyserver)
+}

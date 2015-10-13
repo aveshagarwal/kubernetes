@@ -379,6 +379,7 @@ system-cgroups
 system-container
 system-reserved
 target-port
+test
 tcp-services
 terminated-pod-gc-threshold
 tls-cert-file
