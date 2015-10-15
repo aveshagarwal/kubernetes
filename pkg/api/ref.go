@@ -36,6 +36,7 @@ var (
 // GetReference returns an ObjectReference which refers to the given
 // object, or an error if the object doesn't follow the conventions
 // that would allow this.
+// meta.Accessor return meta.Interface so is the following statement still valid?
 // TODO: should take a meta.Interface see http://issue.k8s.io/7127
 func GetReference(obj runtime.Object) (*ObjectReference, error) {
 	if obj == nil {
