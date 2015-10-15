@@ -286,7 +286,7 @@ func NewTestPod() (*api.Pod, int) {
 		ObjectMeta: api.ObjectMeta{
 			Name:      name,
 			Namespace: api.NamespaceDefault,
-			SelfLink:  fmt.Sprintf("http://1.2.3.4/api/v1beta1/pods/%s", name),
+			SelfLink:  fmt.Sprintf("/api/v1beta1/pods/%s", name),
 		},
 		Spec: api.PodSpec{
 			Containers: []api.Container{
