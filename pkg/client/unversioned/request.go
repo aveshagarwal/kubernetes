@@ -274,6 +274,7 @@ const (
 	SecretType        = "type"
 
 	EventReason                  = "reason"
+	EventType                    = "type"
 	EventSource                  = "source"
 	EventInvolvedKind            = "involvedObject.kind"
 	EventInvolvedNamespace       = "involvedObject.namespace"
@@ -343,6 +344,7 @@ var fieldMappings = versionToResourceToFieldMapping{
 		"events": clientFieldNameToAPIVersionFieldName{
 			ObjectNameField:              ObjectNameField,
 			EventReason:                  EventReason,
+			EventType:                    EventType,
 			EventSource:                  EventSource,
 			EventInvolvedKind:            EventInvolvedKind,
 			EventInvolvedNamespace:       EventInvolvedNamespace,

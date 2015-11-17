@@ -112,6 +112,7 @@ func addConversionFuncs() {
 				"involvedObject.resourceVersion",
 				"involvedObject.fieldPath",
 				"reason",
+				"type",
 				"source":
 				return label, value, nil
 			default:
