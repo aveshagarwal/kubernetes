@@ -225,7 +225,7 @@ func TestSortingPrinter(t *testing.T) {
 	}
 	for _, test := range tests {
 		sort := &SortingPrinter{SortField: test.field, Decoder: internal.Codecs.UniversalDecoder()}
-		if err := sort.sortObj(test.obj); err != nil {
+		if err := sort.sortObj(test.obj, ""); err != nil {
 			t.Errorf("unexpected error: %v (%s)", err, test.name)
 			continue
 		}

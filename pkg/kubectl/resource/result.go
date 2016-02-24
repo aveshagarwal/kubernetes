@@ -221,7 +221,7 @@ func AsVersionedObject(infos []*Info, forceList bool, version string, encoder ru
 		object = objects[0]
 	} else {
 		object = &api.List{Items: objects}
-		converted, err := tryConvert(api.Scheme, object, version, registered.GroupOrDie(api.GroupName).GroupVersion.Version)
+		converted, err := TryConvert(api.Scheme, object, version, registered.GroupOrDie(api.GroupName).GroupVersion.Version)
 		if err != nil {
 			return nil, err
 		}
@@ -256,7 +256,7 @@ func AsVersionedObjects(infos []*Info, version string, encoder runtime.Encoder) 
 			}
 		}
 
-		converted, err := tryConvert(info.Mapping.ObjectConvertor, info.Object, version, info.Mapping.GroupVersionKind.GroupVersion().String())
+		converted, err := TryConvert(info.Mapping.ObjectConvertor, info.Object, version, info.Mapping.GroupVersionKind.GroupVersion().String())
 		if err != nil {
 			return nil, err
 		}
@@ -267,7 +267,7 @@ func AsVersionedObjects(infos []*Info, version string, encoder runtime.Encoder) 
 
 // tryConvert attempts to convert the given object to the provided versions in order. This function assumes
 // the object is in internal version.
-func tryConvert(convertor runtime.ObjectConvertor, object runtime.Object, versions ...string) (runtime.Object, error) {
+func TryConvert(convertor runtime.ObjectConvertor, object runtime.Object, versions ...string) (runtime.Object, error) {
 	var last error
 	for _, version := range versions {
 		if len(version) == 0 {

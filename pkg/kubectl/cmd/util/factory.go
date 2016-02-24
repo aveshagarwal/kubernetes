@@ -830,19 +830,23 @@ func (f *Factory) PrinterForMapping(cmd *cobra.Command, mapping *meta.RESTMappin
 	if err != nil {
 		return nil, err
 	}
+
+	var version unversioned.GroupVersion
 	if ok {
 		clientConfig, err := f.ClientConfig()
 		if err != nil {
 			return nil, err
 		}
 
-		version, err := OutputVersion(cmd, clientConfig.GroupVersion)
+		version, err = OutputVersion(cmd, clientConfig.GroupVersion)
 		if err != nil {
 			return nil, err
 		}
+
 		if version.IsEmpty() {
 			version = mapping.GroupVersionKind.GroupVersion()
 		}
+
 		if version.IsEmpty() {
 			return nil, fmt.Errorf("you must specify an output-version when using this output format")
 		}
@@ -859,9 +863,9 @@ func (f *Factory) PrinterForMapping(cmd *cobra.Command, mapping *meta.RESTMappin
 		if err != nil {
 			return nil, err
 		}
-		printer = maybeWrapSortingPrinter(cmd, printer)
 	}
 
+	printer = maybeWrapSortingPrinter(cmd, printer, version)
 	return printer, nil
 }
 

@@ -21,9 +21,12 @@ import (
 	"io"
 	"reflect"
 	"sort"
+	"strings"
 
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/kubectl/resource"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/jsonpath"
 
@@ -36,6 +39,7 @@ type SortingPrinter struct {
 	SortField string
 	Delegate  ResourcePrinter
 	Decoder   runtime.Decoder
+	Version   string
 }
 
 func (s *SortingPrinter) PrintObj(obj runtime.Object, out io.Writer) error {
@@ -43,7 +47,7 @@ func (s *SortingPrinter) PrintObj(obj runtime.Object, out io.Writer) error {
 		return s.Delegate.PrintObj(obj, out)
 	}
 
-	if err := s.sortObj(obj); err != nil {
+	if err := s.sortObj(obj, s.Version); err != nil {
 		return err
 	}
 	return s.Delegate.PrintObj(obj, out)
@@ -54,7 +58,7 @@ func (p *SortingPrinter) HandledResources() []string {
 	return []string{}
 }
 
-func (s *SortingPrinter) sortObj(obj runtime.Object) error {
+func (s *SortingPrinter) sortObj(obj runtime.Object, version string) error {
 	objs, err := meta.ExtractList(obj)
 	if err != nil {
 		return err
@@ -63,7 +67,7 @@ func (s *SortingPrinter) sortObj(obj runtime.Object) error {
 		return nil
 	}
 
-	sorter, err := SortObjects(s.Decoder, objs, s.SortField)
+	sorter, err := SortObjects(s.Decoder, objs, s.SortField, version)
 	if err != nil {
 		return err
 	}
@@ -80,7 +84,7 @@ func (s *SortingPrinter) sortObj(obj runtime.Object) error {
 	return meta.SetList(obj, objs)
 }
 
-func SortObjects(decoder runtime.Decoder, objs []runtime.Object, fieldInput string) (*RuntimeSort, error) {
+func SortObjects(decoder runtime.Decoder, objs []runtime.Object, fieldInput string, version string) (*RuntimeSort, error) {
 	parser := jsonpath.New("sorting")
 
 	field, err := massageJSONPath(fieldInput)
@@ -93,12 +97,19 @@ func SortObjects(decoder runtime.Decoder, objs []runtime.Object, fieldInput stri
 	}
 
 	for ix := range objs {
-		item := objs[ix]
-		switch u := item.(type) {
-		case *runtime.Unknown:
-			var err error
-			if objs[ix], _, err = decoder.Decode(u.RawJSON, nil, nil); err != nil {
+		var err error
+		partialType := strings.Split(reflect.TypeOf(objs[ix]).String(), ".")[0]
+		switch partialType {
+		case "*api":
+			if objs[ix], err = resource.TryConvert(api.Scheme, objs[ix], version); err != nil {
 				return nil, err
+			}
+		default:
+			switch u := objs[ix].(type) {
+			case *runtime.Unknown:
+				if objs[ix], _, err = decoder.Decode(u.RawJSON, nil, nil); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
