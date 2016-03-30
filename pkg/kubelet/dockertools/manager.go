@@ -702,7 +702,7 @@ func (dm *DockerManager) GetContainers(all bool) ([]*kubecontainer.Container, er
 	// Convert DockerContainers to []*kubecontainer.Container
 	result := make([]*kubecontainer.Container, 0, len(containers))
 	for _, c := range containers {
-		converted, err := toRuntimeContainer(c)
+		converted, err := toRuntimeContainer(c, dm)
 		if err != nil {
 			glog.Errorf("Error examining the container: %v", err)
 			continue

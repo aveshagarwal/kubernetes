@@ -31,7 +31,7 @@ const (
 	statusExitedPrefix  = "Exited"
 )
 
-func mapState(state string) kubecontainer.ContainerState {
+func mapState(state string, exitcode int) kubecontainer.ContainerState {
 	// Parse the state string in docker.APIContainers. This could break when
 	// we upgrade docker.
 	switch {
@@ -40,12 +40,15 @@ func mapState(state string) kubecontainer.ContainerState {
 	case strings.HasPrefix(state, statusExitedPrefix):
 		return kubecontainer.ContainerStateExited
 	default:
+		if exitcode != 0 {
+			return kubecontainer.ContainerStateExited
+		}
 		return kubecontainer.ContainerStateUnknown
 	}
 }
 
 // Converts docker.APIContainers to kubecontainer.Container.
-func toRuntimeContainer(c *docker.APIContainers) (*kubecontainer.Container, error) {
+func toRuntimeContainer(c *docker.APIContainers, dm *DockerManager) (*kubecontainer.Container, error) {
 	if c == nil {
 		return nil, fmt.Errorf("unable to convert a nil pointer to a runtime container")
 	}
@@ -53,6 +56,11 @@ func toRuntimeContainer(c *docker.APIContainers) (*kubecontainer.Container, erro
 	dockerName, hash, err := getDockerContainerNameInfo(c)
 	if err != nil {
 		return nil, err
+	}
+
+	iResult, err := dm.client.InspectContainer(id)
+	if err != nil {
+		return nil, ip, err
 	}
 
 	return &kubecontainer.Container{
@@ -65,7 +73,7 @@ func toRuntimeContainer(c *docker.APIContainers) (*kubecontainer.Container, erro
 		// However, in kubernetes we usually use state to indicate whether a container is running or exited,
 		// while use status to indicate the comprehensive status of the container. So we have different naming
 		// norm here.
-		State: mapState(c.Status),
+		State: mapState(c.Status, iResult.State.ExitCode),
 	}, nil
 }
 
