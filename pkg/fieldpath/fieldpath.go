@@ -18,8 +18,11 @@ package fieldpath
 
 import (
 	"fmt"
+	"reflect"
+	"regexp"
 
 	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/kubernetes/pkg/util/jsonpath"
 )
 
 // formatMap formats map[string]string to a string.
@@ -57,4 +60,28 @@ func ExtractFieldPathAsString(obj interface{}, fieldPath string) (string, error)
 	}
 
 	return "", fmt.Errorf("Unsupported fieldPath: %v", fieldPath)
+}
+
+var jsonRegexp = regexp.MustCompile("^\\{\\.?([^{}]+)\\}$|^\\.?([^{}]+)$")
+
+func ExtractJSONFieldSelectorValue(obj interface{}, fieldPath string) (string, error) {
+	parser := jsonpath.New("downward APIs")
+	tmpFieldPath, err := jsonpath.MassageJSONPath(fieldPath, jsonRegexp)
+	if err != nil {
+		return "", err
+	}
+
+	if err := parser.Parse(tmpFieldPath); err != nil {
+		return "", err
+	}
+
+	values, err := parser.FindResults(reflect.ValueOf(obj).Elem().Interface())
+	if err != nil {
+		return "", err
+	}
+	if len(values) == 0 {
+		return "", fmt.Errorf("couldn't find any field with path: %s", tmpFieldPath)
+	}
+
+	return fmt.Sprintf("%s", values[0][0]), nil
 }
