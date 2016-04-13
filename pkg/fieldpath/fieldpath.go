@@ -26,6 +26,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
 	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/jsonpath"
 )
 
@@ -92,58 +93,51 @@ func extractJSONFieldSelectorValue(obj interface{}, fieldPath string) (string, e
 
 // Avesh todo: create a function for common pod copy and conversion code and perhaps another place
 func ExtractJSONFieldSelectorValueForPod(fs *api.ObjectFieldSelector, internalPod *api.Pod) (string, error) {
-	obj, err := api.Scheme.Copy(internalPod)
-	if err != nil {
-		//glog.Errorf("unable to copy pod: %v", err)
-		return "", err
-	}
-
-	/*clonedPod, ok := obj.(*api.Pod)
-	if !ok {
-		return "", fmt.Errorf("error creating pod copy")
-	}*/
-
-	versionedPod, err := api.Scheme.ConvertToVersion(obj.(*api.Pod), fs.APIVersion)
+	versionedPod, err := CloneAndConvertInternalPodToVersioned(internalPod, fs.APIVersion)
 	if err != nil {
 		return "", err
 	}
-
 	return extractJSONFieldSelectorValue(versionedPod, fs.FieldPath)
 
 }
 
 func ExtractJSONFieldSelectorValueForContainer(fs *api.ObjectFieldSelector, internalPod *api.Pod, containerName string) (string, error) {
+	versionedPod, err := CloneAndConvertInternalPodToVersioned(internalPod, fs.APIVersion)
+	if err != nil {
+		return "", err
+	}
+
+	versionedContainer, err := FindContainerInPod(versionedPod, containerName, fs.APIVersion)
+	if err != nil {
+		return "", err
+	}
+
+	return extractJSONFieldSelectorValue(versionedContainer, fs.FieldPath)
+}
+
+// Avesh todo: perhaps move to another place?
+func CloneAndConvertInternalPodToVersioned(internalPod *api.Pod, version string) (runtime.Object, error) {
 	obj, err := api.Scheme.Copy(internalPod)
 	if err != nil {
-		glog.Errorf("unable to copy pod for extracting run time values of json field selectors: %v", err)
-		return "", err
+		glog.Errorf("unable to copy pod: %v", err)
+		return nil, err
 	}
 
-	/*clonedPod, ok := obj.(*api.Pod)
-	if !ok {
-		return "", fmt.Errorf("error creating pod copy")
-	}*/
+	return api.Scheme.ConvertToVersion(obj.(*api.Pod), version)
+}
 
-	versionedPod, err := api.Scheme.ConvertToVersion(obj.(*api.Pod), fs.APIVersion)
-	if err != nil {
-		return "", err
-	}
-
-	switch fs.APIVersion {
+// Avesh todo: perhaps move to another place?
+func FindContainerInPod(versionedObj runtime.Object, containerName string, version string) (interface{}, error) {
+	switch version {
 	case "v1":
-		actualPod := versionedPod.(*v1.Pod)
-		var versionedContainer *v1.Container
-		for _, container := range actualPod.Spec.Containers {
+		versionedPod := versionedObj.(*v1.Pod)
+		for _, container := range versionedPod.Spec.Containers {
 			if container.Name == containerName {
-				versionedContainer = &container
-				break
+				return container, nil
 			}
 		}
-		if versionedContainer == nil {
-			return "", fmt.Errorf("container %s not found", containerName)
-		}
-		return extractJSONFieldSelectorValue(versionedContainer, fs.FieldPath)
+		return nil, fmt.Errorf("container %s not found", containerName)
 	default:
-		return "", fmt.Errorf("version %s is not supported", fs.APIVersion)
+		return nil, fmt.Errorf("version %s is not supported", version)
 	}
 }
