@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"k8s.io/kubernetes/third_party/golang/template"
@@ -122,6 +123,33 @@ func (j *JSONPath) PrintResults(wr io.Writer, results []reflect.Value) error {
 		}
 	}
 	return nil
+}
+
+// MassageJSONPath attempts to be flexible with JSONPath expressions, it accepts:
+//   * metadata.name (no leading '.' or curly brances '{...}'
+//   * {metadata.name} (no leading '.')
+//   * .metadata.name (no curly braces '{...}')
+//   * {.metadata.name} (complete expression)
+// And transforms them all into a valid jsonpat expression:
+//   {.metadata.name}
+func MassageJSONPath(pathExpression string, jsonRegexp *regexp.Regexp) (string, error) {
+	if len(pathExpression) == 0 {
+		return pathExpression, nil
+	}
+	submatches := jsonRegexp.FindStringSubmatch(pathExpression)
+	if submatches == nil {
+		return "", fmt.Errorf("unexpected path string, expected a 'name1.name2' or '.name1.name2' or '{name1.name2}' or '{.name1.name2}'")
+	}
+	if len(submatches) != 3 {
+		return "", fmt.Errorf("unexpected submatch list: %v", submatches)
+	}
+	var fieldSpec string
+	if len(submatches[1]) != 0 {
+		fieldSpec = submatches[1]
+	} else {
+		fieldSpec = submatches[2]
+	}
+	return fmt.Sprintf("{.%s}", fieldSpec), nil
 }
 
 // walk visits tree rooted at the given node in DFS order

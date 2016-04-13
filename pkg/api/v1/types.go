@@ -911,7 +911,8 @@ type EnvVar struct {
 // EnvVarSource represents a source for the value of an EnvVar.
 type EnvVarSource struct {
 	// Selects a field of the pod; only name and namespace are supported.
-	FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty" protobuf:"bytes,1,opt,name=fieldRef"`
+	FieldRef          *ObjectFieldSelector `json:"fieldRef,omitempty" protobuf:"bytes,1,opt,name=fieldRef"`
+	ContainerFieldRef *ObjectFieldSelector `json:"containerFieldRef,omitempty"`
 	// Selects a key of a ConfigMap.
 	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" protobuf:"bytes,2,opt,name=configMapKeyRef"`
 	// Selects a key of a secret in the pod's namespace
@@ -3063,6 +3064,7 @@ type DownwardAPIVolumeFile struct {
 	Path string `json:"path" protobuf:"bytes,1,opt,name=path"`
 	// Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
 	FieldRef ObjectFieldSelector `json:"fieldRef" protobuf:"bytes,2,opt,name=fieldRef"`
+	//ContainerFieldRef *ObjectFieldSelector `json:"containerFieldRef,omitempty"`
 }
 
 // SecurityContext holds security configuration that will be applied to a container.

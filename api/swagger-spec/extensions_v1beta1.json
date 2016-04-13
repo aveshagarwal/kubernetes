@@ -7266,6 +7266,9 @@
       "$ref": "v1.ObjectFieldSelector",
       "description": "Selects a field of the pod; only name and namespace are supported."
      },
+     "containerFieldRef": {
+      "$ref": "v1.ObjectFieldSelector"
+     },
      "configMapKeyRef": {
       "$ref": "v1.ConfigMapKeySelector",
       "description": "Selects a key of a ConfigMap."

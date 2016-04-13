@@ -83,7 +83,7 @@ func (s *SortingPrinter) sortObj(obj runtime.Object) error {
 func SortObjects(decoder runtime.Decoder, objs []runtime.Object, fieldInput string) (*RuntimeSort, error) {
 	parser := jsonpath.New("sorting")
 
-	field, err := massageJSONPath(fieldInput)
+	field, err := jsonpath.MassageJSONPath(fieldInput, jsonRegexp)
 	if err != nil {
 		return nil, err
 	}

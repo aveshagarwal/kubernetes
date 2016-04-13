@@ -1068,6 +1068,7 @@ func validateEnv(vars []api.EnvVar, fldPath *field.Path) field.ErrorList {
 }
 
 var validFieldPathExpressionsEnv = sets.NewString("metadata.name", "metadata.namespace", "status.podIP")
+var validContainerFieldPathExpressionsEnv = sets.NewString("resources.limits.cpu", "resources.limits.memory", "resources.limits.storage", "resources.requests.cpu", "resources.requests.memory", "resources.requests.storage")
 
 func validateEnvVarValueFrom(ev api.EnvVar, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
@@ -1081,6 +1082,10 @@ func validateEnvVarValueFrom(ev api.EnvVar, fldPath *field.Path) field.ErrorList
 	if ev.ValueFrom.FieldRef != nil {
 		numSources++
 		allErrs = append(allErrs, validateObjectFieldSelector(ev.ValueFrom.FieldRef, &validFieldPathExpressionsEnv, fldPath.Child("fieldRef"))...)
+	}
+	if ev.ValueFrom.ContainerFieldRef != nil {
+		numSources++
+		allErrs = append(allErrs, validateContainerObjectFieldSelector(ev.ValueFrom.ContainerFieldRef, &validContainerFieldPathExpressionsEnv, fldPath.Child("containerFieldRef"))...)
 	}
 	if ev.ValueFrom.ConfigMapKeyRef != nil {
 		numSources++
@@ -1110,12 +1115,29 @@ func validateObjectFieldSelector(fs *api.ObjectFieldSelector, expressions *sets.
 	} else if len(fs.FieldPath) == 0 {
 		allErrs = append(allErrs, field.Required(fldPath.Child("fieldPath"), ""))
 	} else {
-		internalFieldPath, _, err := api.Scheme.ConvertFieldLabel(fs.APIVersion, "Pod", fs.FieldPath, "")
-		if err != nil {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("fieldPath"), fs.FieldPath, fmt.Sprintf("error converting fieldPath: %v", err)))
-		} else if !expressions.Has(internalFieldPath) {
-			allErrs = append(allErrs, field.NotSupported(fldPath.Child("fieldPath"), internalFieldPath, expressions.List()))
+		switch fs.FieldPath {
+		case "metadata.name", "metadata.namespace", "metadata.labels", "metadata.annotations", "status.podIP":
+			internalFieldPath, _, err := api.Scheme.ConvertFieldLabel(fs.APIVersion, "Pod", fs.FieldPath, "")
+			if err != nil {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("fieldPath"), fs.FieldPath, fmt.Sprintf("error converting fieldPath: %v", err)))
+			} else if !expressions.Has(internalFieldPath) {
+				allErrs = append(allErrs, field.NotSupported(fldPath.Child("fieldPath"), internalFieldPath, expressions.List()))
+			}
 		}
+	}
+
+	return allErrs
+}
+
+func validateContainerObjectFieldSelector(fs *api.ObjectFieldSelector, expressions *sets.String, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if len(fs.APIVersion) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath.Child("apiVersion"), ""))
+	} else if len(fs.FieldPath) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath.Child("fieldPath"), ""))
+	} else if !expressions.Has(fs.FieldPath) {
+		allErrs = append(allErrs, field.NotSupported(fldPath.Child("fieldPath"), fs.FieldPath, expressions.List()))
 	}
 
 	return allErrs
