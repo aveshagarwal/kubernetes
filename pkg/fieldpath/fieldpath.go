@@ -133,7 +133,7 @@ func FindContainerInPod(versionedObj runtime.Object, containerName string, versi
 		versionedPod := versionedObj.(*v1.Pod)
 		for _, container := range versionedPod.Spec.Containers {
 			if container.Name == containerName {
-				return container, nil
+				return &container, nil
 			}
 		}
 		return nil, fmt.Errorf("container %s not found", containerName)
