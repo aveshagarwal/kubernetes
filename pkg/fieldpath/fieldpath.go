@@ -21,7 +21,11 @@ import (
 	"reflect"
 	"regexp"
 
+	"github.com/golang/glog"
+
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/util/jsonpath"
 )
 
@@ -64,7 +68,7 @@ func ExtractFieldPathAsString(obj interface{}, fieldPath string) (string, error)
 
 var jsonRegexp = regexp.MustCompile("^\\{\\.?([^{}]+)\\}$|^\\.?([^{}]+)$")
 
-func ExtractJSONFieldSelectorValue(obj interface{}, fieldPath string) (string, error) {
+func extractJSONFieldSelectorValue(obj interface{}, fieldPath string) (string, error) {
 	parser := jsonpath.New("downward APIs")
 	tmpFieldPath, err := jsonpath.MassageJSONPath(fieldPath, jsonRegexp)
 	if err != nil {
@@ -84,4 +88,62 @@ func ExtractJSONFieldSelectorValue(obj interface{}, fieldPath string) (string, e
 	}
 
 	return fmt.Sprintf("%s", values[0][0]), nil
+}
+
+// Avesh todo: create a function for common pod copy and conversion code and perhaps another place
+func ExtractJSONFieldSelectorValueForPod(fs *api.ObjectFieldSelector, internalPod *api.Pod) (string, error) {
+	obj, err := api.Scheme.Copy(internalPod)
+	if err != nil {
+		//glog.Errorf("unable to copy pod: %v", err)
+		return "", err
+	}
+
+	/*clonedPod, ok := obj.(*api.Pod)
+	if !ok {
+		return "", fmt.Errorf("error creating pod copy")
+	}*/
+
+	versionedPod, err := api.Scheme.ConvertToVersion(obj.(*api.Pod), fs.APIVersion)
+	if err != nil {
+		return "", err
+	}
+
+	return extractJSONFieldSelectorValue(versionedPod, fs.FieldPath)
+
+}
+
+func ExtractJSONFieldSelectorValueForContainer(fs *api.ObjectFieldSelector, internalPod *api.Pod, containerName string) (string, error) {
+	obj, err := api.Scheme.Copy(internalPod)
+	if err != nil {
+		glog.Errorf("unable to copy pod for extracting run time values of json field selectors: %v", err)
+		return "", err
+	}
+
+	/*clonedPod, ok := obj.(*api.Pod)
+	if !ok {
+		return "", fmt.Errorf("error creating pod copy")
+	}*/
+
+	versionedPod, err := api.Scheme.ConvertToVersion(obj.(*api.Pod), fs.APIVersion)
+	if err != nil {
+		return "", err
+	}
+
+	switch fs.APIVersion {
+	case "v1":
+		actualPod := versionedPod.(*v1.Pod)
+		var versionedContainer *v1.Container
+		for _, container := range actualPod.Spec.Containers {
+			if container.Name == containerName {
+				versionedContainer = &container
+				break
+			}
+		}
+		if versionedContainer == nil {
+			return "", fmt.Errorf("container %s not found", containerName)
+		}
+		return extractJSONFieldSelectorValue(versionedContainer, fs.FieldPath)
+	default:
+		return "", fmt.Errorf("version %s is not supported", fs.APIVersion)
+	}
 }
