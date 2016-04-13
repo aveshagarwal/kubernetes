@@ -25,6 +25,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/util/jsonpath"
 )
 
 func TestMassageJSONPath(t *testing.T) {
@@ -44,7 +45,7 @@ func TestMassageJSONPath(t *testing.T) {
 		{input: "{{foo.bar}", expectErr: true},
 	}
 	for _, test := range tests {
-		output, err := massageJSONPath(test.input)
+		output, err := jsonpath.MassageJSONPath(test.input)
 		if err != nil && !test.expectErr {
 			t.Errorf("unexpected error: %v", err)
 			continue

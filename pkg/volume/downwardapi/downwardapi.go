@@ -75,9 +75,9 @@ func (plugin *downwardAPIPlugin) NewMounter(spec *volume.Spec, pod *api.Pod, opt
 		podUID:  pod.UID,
 		plugin:  plugin,
 	}
-	v.fieldReferenceFileNames = make(map[string]string)
+	v.fieldReferenceFileNames = make(map[string]api.ObjectFieldSelector)
 	for _, fileInfo := range spec.Volume.DownwardAPI.Items {
-		v.fieldReferenceFileNames[fileInfo.FieldRef.FieldPath] = path.Clean(fileInfo.Path)
+		v.fieldReferenceFileNames[path.Clean(fileInfo.Path)] = fileInfo.FieldRef
 	}
 	return &downwardAPIVolumeMounter{
 		downwardAPIVolume: v,
@@ -98,7 +98,7 @@ func (plugin *downwardAPIPlugin) NewUnmounter(volName string, podUID types.UID) 
 // downwardAPIVolume retrieves downward API data and placing them into the volume on the host.
 type downwardAPIVolume struct {
 	volName                 string
-	fieldReferenceFileNames map[string]string
+	fieldReferenceFileNames map[string]api.ObjectFieldSelector
 	pod                     *api.Pod
 	podUID                  types.UID // TODO: remove this redundancy as soon NewUnmounter func will have *api.POD and not only types.UID
 	plugin                  *downwardAPIPlugin
@@ -174,13 +174,18 @@ func (b *downwardAPIVolumeMounter) SetUpAt(dir string, fsGroup *int64) error {
 func (d *downwardAPIVolume) collectData() (map[string]string, error) {
 	errlist := []error{}
 	data := make(map[string]string)
-	for fieldReference, fileName := range d.fieldReferenceFileNames {
-		if values, err := fieldpath.ExtractFieldPathAsString(d.pod, fieldReference); err != nil {
-			glog.Errorf("Unable to extract field %s: %s", fieldReference, err.Error())
-			errlist = append(errlist, err)
-		} else {
-			data[fileName] = sortLines(values)
+	for fileName, fieldRef := range d.fieldReferenceFileNames {
+		var values string
+		var err, err1 error
+		if values, err = fieldpath.ExtractFieldPathAsString(d.pod, fieldRef.FieldPath); err != nil {
+			if values, err1 = fieldpath.ExtractJSONFieldSelectorValueForPod(&fieldRef, d.pod); err1 != nil {
+				glog.Errorf("Unable to extract field %s: %s", fieldRef.FieldPath, err.Error())
+				errlist = append(errlist, err)
+				errlist = append(errlist, err1)
+				continue
+			}
 		}
+		data[fileName] = sortLines(values)
 	}
 	return data, utilerrors.NewAggregate(errlist)
 }
@@ -311,7 +316,7 @@ func (d *downwardAPIVolume) writeDataInTimestampDir(data map[string]string) (str
 // foo/bar      -> ../..downwardapi/foo/bar
 // foo/baz/blah -> ../../..downwardapi/foo/baz/blah
 func (d *downwardAPIVolume) updateSymlinksToCurrentDir() error {
-	for _, f := range d.fieldReferenceFileNames {
+	for f, _ := range d.fieldReferenceFileNames {
 		dir, _ := filepath.Split(f)
 		nbOfSubdir := 0
 		if len(dir) > 0 {
