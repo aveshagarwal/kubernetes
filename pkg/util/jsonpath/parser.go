@@ -285,6 +285,7 @@ Loop:
 	//slice operator
 	reg = regexp.MustCompile(`^(-?[\d]*)(:-?[\d]*)?(:[\d]*)?$`)
 	value = reg.FindStringSubmatch(text)
+	fmt.Printf("current array index %s", text)
 	if value == nil {
 		return fmt.Errorf("invalid array index %s", text)
 	}

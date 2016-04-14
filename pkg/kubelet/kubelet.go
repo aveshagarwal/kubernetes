@@ -1468,7 +1468,8 @@ func (kl *Kubelet) makeEnvironmentVariables(pod *api.Pod, container *api.Contain
 					return result, err
 				}
 			case envVar.ValueFrom.ContainerFieldRef != nil:
-				runtimeVal, err = fieldpath.ExtractJSONFieldSelectorValueForContainer(envVar.ValueFrom.ContainerFieldRef, pod, container.Name)
+				//runtimeVal, err = fieldpath.ExtractJSONFieldSelectorValueForContainer(envVar.ValueFrom.ContainerFieldRef, pod, container.Name)
+				runtimeVal, err = fieldpath.ExtractJSONFieldSelectorValue(container, envVar.ValueFrom.ContainerFieldRef.FieldPath)
 				if err != nil {
 					return result, err
 				}
@@ -1531,7 +1532,8 @@ func (kl *Kubelet) podFieldSelectorRuntimeValue(fs *api.ObjectFieldSelector, pod
 		}
 		return fieldpath.ExtractFieldPathAsString(pod, internalFieldPath)
 	default:
-		return fieldpath.ExtractJSONFieldSelectorValueForPod(fs, pod)
+		//return fieldpath.ExtractJSONFieldSelectorValueForPod(fs, pod)
+		return fieldpath.ExtractJSONFieldSelectorValue(pod, fs.FieldPath)
 	}
 }
 

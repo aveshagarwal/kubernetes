@@ -45,7 +45,7 @@ func TestMassageJSONPath(t *testing.T) {
 		{input: "{{foo.bar}", expectErr: true},
 	}
 	for _, test := range tests {
-		output, err := jsonpath.MassageJSONPath(test.input)
+		output, err := jsonpath.MassageJSONPath(test.input, jsonRegexp)
 		if err != nil && !test.expectErr {
 			t.Errorf("unexpected error: %v", err)
 			continue

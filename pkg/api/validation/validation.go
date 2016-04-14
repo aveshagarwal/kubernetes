@@ -722,10 +722,7 @@ func validateDownwardAPIVolumeSource(downwardAPIVolume *api.DownwardAPIVolumeSou
 			allErrs = append(allErrs, field.Required(fldPath.Child("path"), ""))
 		}
 		allErrs = append(allErrs, validateVolumeSourcePath(downwardAPIVolumeFile.Path, fldPath.Child("path"))...)
-		switch downwardAPIVolumeFile.FieldRef.FieldPath {
-		case "metadata.name", "metadata.namespace", "metadata.labels", "metadata.annotations":
-			allErrs = append(allErrs, validateObjectFieldSelector(&downwardAPIVolumeFile.FieldRef, &validDownwardAPIFieldPathExpressions, fldPath.Child("fieldRef"))...)
-		}
+		allErrs = append(allErrs, validateObjectFieldSelector(&downwardAPIVolumeFile.FieldRef, &validDownwardAPIFieldPathExpressions, fldPath.Child("fieldRef"))...)
 	}
 	return allErrs
 }
@@ -1084,10 +1081,7 @@ func validateEnvVarValueFrom(ev api.EnvVar, fldPath *field.Path) field.ErrorList
 
 	if ev.ValueFrom.FieldRef != nil {
 		numSources++
-		switch ev.ValueFrom.FieldRef.FieldPath {
-		case "metadata.name", "metadata.namespace", "status.podIP":
-			allErrs = append(allErrs, validateObjectFieldSelector(ev.ValueFrom.FieldRef, &validFieldPathExpressionsEnv, fldPath.Child("fieldRef"))...)
-		}
+		allErrs = append(allErrs, validateObjectFieldSelector(ev.ValueFrom.FieldRef, &validFieldPathExpressionsEnv, fldPath.Child("fieldRef"))...)
 	}
 	if ev.ValueFrom.ContainerFieldRef != nil {
 		numSources++
@@ -1121,11 +1115,14 @@ func validateObjectFieldSelector(fs *api.ObjectFieldSelector, expressions *sets.
 	} else if len(fs.FieldPath) == 0 {
 		allErrs = append(allErrs, field.Required(fldPath.Child("fieldPath"), ""))
 	} else {
-		internalFieldPath, _, err := api.Scheme.ConvertFieldLabel(fs.APIVersion, "Pod", fs.FieldPath, "")
-		if err != nil {
-			allErrs = append(allErrs, field.Invalid(fldPath.Child("fieldPath"), fs.FieldPath, fmt.Sprintf("error converting fieldPath: %v", err)))
-		} else if !expressions.Has(internalFieldPath) {
-			allErrs = append(allErrs, field.NotSupported(fldPath.Child("fieldPath"), internalFieldPath, expressions.List()))
+		switch fs.FieldPath {
+		case "metadata.name", "metadata.namespace", "metadata.labels", "metadata.annotations", "status.podIP":
+			internalFieldPath, _, err := api.Scheme.ConvertFieldLabel(fs.APIVersion, "Pod", fs.FieldPath, "")
+			if err != nil {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("fieldPath"), fs.FieldPath, fmt.Sprintf("error converting fieldPath: %v", err)))
+			} else if !expressions.Has(internalFieldPath) {
+				allErrs = append(allErrs, field.NotSupported(fldPath.Child("fieldPath"), internalFieldPath, expressions.List()))
+			}
 		}
 	}
 

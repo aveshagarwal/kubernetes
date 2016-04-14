@@ -69,7 +69,7 @@ func ExtractFieldPathAsString(obj interface{}, fieldPath string) (string, error)
 
 var jsonRegexp = regexp.MustCompile("^\\{\\.?([^{}]+)\\}$|^\\.?([^{}]+)$")
 
-func extractJSONFieldSelectorValue(obj interface{}, fieldPath string) (string, error) {
+func ExtractJSONFieldSelectorValue(obj interface{}, fieldPath string) (string, error) {
 	parser := jsonpath.New("downward APIs")
 	tmpFieldPath, err := jsonpath.MassageJSONPath(fieldPath, jsonRegexp)
 	if err != nil {
@@ -91,17 +91,15 @@ func extractJSONFieldSelectorValue(obj interface{}, fieldPath string) (string, e
 	return fmt.Sprintf("%s", values[0][0]), nil
 }
 
-// Avesh todo: create a function for common pod copy and conversion code and perhaps another place
-func ExtractJSONFieldSelectorValueForPod(fs *api.ObjectFieldSelector, internalPod *api.Pod) (string, error) {
-	versionedPod, err := CloneAndConvertInternalPodToVersioned(internalPod, fs.APIVersion)
+/*func ExtractJSONFieldSelectorValueForPod(fs *api.ObjectFieldSelector, internalPod *api.Pod) (string, error) {
+	/*versionedPod, err := CloneAndConvertInternalPodToVersioned(internalPod, fs.APIVersion)
 	if err != nil {
 		return "", err
 	}
 	return extractJSONFieldSelectorValue(versionedPod, fs.FieldPath)
+}*/
 
-}
-
-func ExtractJSONFieldSelectorValueForContainer(fs *api.ObjectFieldSelector, internalPod *api.Pod, containerName string) (string, error) {
+/*func ExtractJSONFieldSelectorValueForContainer(fs *api.ObjectFieldSelector, internalPod *api.Pod, containerName string) (string, error) {
 	versionedPod, err := CloneAndConvertInternalPodToVersioned(internalPod, fs.APIVersion)
 	if err != nil {
 		return "", err
@@ -113,7 +111,7 @@ func ExtractJSONFieldSelectorValueForContainer(fs *api.ObjectFieldSelector, inte
 	}
 
 	return extractJSONFieldSelectorValue(versionedContainer, fs.FieldPath)
-}
+}*/
 
 // Avesh todo: perhaps move to another place?
 func CloneAndConvertInternalPodToVersioned(internalPod *api.Pod, version string) (runtime.Object, error) {

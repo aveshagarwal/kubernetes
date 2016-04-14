@@ -178,7 +178,7 @@ func (d *downwardAPIVolume) collectData() (map[string]string, error) {
 		var values string
 		var err, err1 error
 		if values, err = fieldpath.ExtractFieldPathAsString(d.pod, fieldRef.FieldPath); err != nil {
-			if values, err1 = fieldpath.ExtractJSONFieldSelectorValueForPod(&fieldRef, d.pod); err1 != nil {
+			if values, err1 = fieldpath.ExtractJSONFieldSelectorValue(d.pod, fieldRef.FieldPath); err1 != nil {
 				glog.Errorf("Unable to extract field %s: %s", fieldRef.FieldPath, err.Error())
 				errlist = append(errlist, err)
 				errlist = append(errlist, err1)

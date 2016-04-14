@@ -62,7 +62,7 @@ type ObjectMeta struct {
 	// some resources may allow a client to request the generation of an appropriate name
 	// automatically. Name is primarily intended for creation idempotence and configuration
 	// definition.
-	Name string `json:"name,omitempty"`
+	Name string
 
 	// GenerateName indicates that the name should be made unique by the server prior to persisting
 	// it. A non-empty value for the field indicates the name will be made unique (and the name
@@ -911,18 +911,18 @@ type Capabilities struct {
 // ResourceRequirements describes the compute resource requirements.
 type ResourceRequirements struct {
 	// Limits describes the maximum amount of compute resources allowed.
-	Limits ResourceList `json:"limits,omitempty"`
+	Limits ResourceList
 	// Requests describes the minimum amount of compute resources required.
 	// If Request is omitted for a container, it defaults to Limits if that is explicitly specified,
 	// otherwise to an implementation-defined value
-	Requests ResourceList `json:"requests,omitempty"`
+	Requests ResourceList
 }
 
 // Container represents a single container that is expected to be run on the host.
 type Container struct {
 	// Required: This must be a DNS_LABEL.  Each container in a pod must
 	// have a unique name.
-	Name string `json:"name"`
+	Name string
 	// Required.
 	Image string `json:"image"`
 	// Optional: The docker image's entrypoint is used if this is not provided; cannot be updated.
@@ -942,11 +942,11 @@ type Container struct {
 	Ports      []ContainerPort `json:"ports,omitempty"`
 	Env        []EnvVar        `json:"env,omitempty"`
 	// Compute resource requirements.
-	Resources      ResourceRequirements `json:"resources,omitempty"`
-	VolumeMounts   []VolumeMount        `json:"volumeMounts,omitempty"`
-	LivenessProbe  *Probe               `json:"livenessProbe,omitempty"`
-	ReadinessProbe *Probe               `json:"readinessProbe,omitempty"`
-	Lifecycle      *Lifecycle           `json:"lifecycle,omitempty"`
+	Resources      ResourceRequirements
+	VolumeMounts   []VolumeMount `json:"volumeMounts,omitempty"`
+	LivenessProbe  *Probe        `json:"livenessProbe,omitempty"`
+	ReadinessProbe *Probe        `json:"readinessProbe,omitempty"`
+	Lifecycle      *Lifecycle    `json:"lifecycle,omitempty"`
 	// Required.
 	TerminationMessagePath string `json:"terminationMessagePath,omitempty"`
 	// Required: Policy for pulling images for this container
@@ -1310,7 +1310,7 @@ type PreferredSchedulingTerm struct {
 type PodSpec struct {
 	Volumes []Volume `json:"volumes"`
 	// Required: there must be at least one container in a pod.
-	Containers    []Container   `json:"containers"`
+	Containers    []Container
 	RestartPolicy RestartPolicy `json:"restartPolicy,omitempty"`
 	// Optional duration in seconds the pod needs to terminate gracefully. May be decreased in delete request.
 	// Value must be non-negative integer. The value zero indicates delete immediately.
@@ -1438,10 +1438,10 @@ type PodStatusResult struct {
 // Pod is a collection of containers, used as either input (create, update) or as output (list, get).
 type Pod struct {
 	unversioned.TypeMeta `json:",inline"`
-	ObjectMeta           `json:"metadata,omitempty"`
+	ObjectMeta
 
 	// Spec defines the behavior of a pod.
-	Spec PodSpec `json:"spec,omitempty"`
+	Spec PodSpec
 
 	// Status represents the current information about a pod. This data may not be up
 	// to date.
