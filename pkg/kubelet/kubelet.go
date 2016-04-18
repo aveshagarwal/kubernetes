@@ -1506,6 +1506,11 @@ func (kl *Kubelet) makeEnvironmentVariables(pod *api.Pod, container *api.Contain
 				if err != nil {
 					return result, err
 				}
+			case envVar.ValueFrom.ContainerFieldRef != nil:
+				runtimeVal, err = fieldpath.ExtractJSONFieldSelectorValueForContainer(envVar.ValueFrom.ContainerFieldRef, pod, container.Name)
+				if err != nil {
+					return result, err
+				}
 			case envVar.ValueFrom.ConfigMapKeyRef != nil:
 				name := envVar.ValueFrom.ConfigMapKeyRef.Name
 				key := envVar.ValueFrom.ConfigMapKeyRef.Key
@@ -1552,15 +1557,21 @@ func (kl *Kubelet) makeEnvironmentVariables(pod *api.Pod, container *api.Contain
 // podFieldSelectorRuntimeValue returns the runtime value of the given
 // selector for a pod.
 func (kl *Kubelet) podFieldSelectorRuntimeValue(fs *api.ObjectFieldSelector, pod *api.Pod, podIP string) (string, error) {
-	internalFieldPath, _, err := api.Scheme.ConvertFieldLabel(fs.APIVersion, "Pod", fs.FieldPath, "")
-	if err != nil {
-		return "", err
+
+	switch fs.FieldPath {
+	case "metadata.name", "metadata.namespace", "status.podIP":
+		internalFieldPath, _, err := api.Scheme.ConvertFieldLabel(fs.APIVersion, "Pod", fs.FieldPath, "")
+		if err != nil {
+			return "", err
+		}
+		switch internalFieldPath {
+		case "status.podIP":
+			return podIP, nil
+		}
+		return fieldpath.ExtractFieldPathAsString(pod, internalFieldPath)
+	default:
+		return fieldpath.ExtractJSONFieldSelectorValueForPod(fs, pod)
 	}
-	switch internalFieldPath {
-	case "status.podIP":
-		return podIP, nil
-	}
-	return fieldpath.ExtractFieldPathAsString(pod, internalFieldPath)
 }
 
 // GetClusterDNS returns a list of the DNS servers and a list of the DNS search
