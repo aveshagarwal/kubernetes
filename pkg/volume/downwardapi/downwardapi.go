@@ -75,9 +75,13 @@ func (plugin *downwardAPIPlugin) NewMounter(spec *volume.Spec, pod *api.Pod, opt
 		podUID:  pod.UID,
 		plugin:  plugin,
 	}
-	v.fieldReferenceFileNames = make(map[string]api.ObjectFieldSelector)
+	v.fieldReferenceFileNames = make(map[string]*api.ObjectFieldSelector)
 	for _, fileInfo := range spec.Volume.DownwardAPI.Items {
-		v.fieldReferenceFileNames[path.Clean(fileInfo.Path)] = fileInfo.FieldRef
+		if fileInfo.FieldRef != nil {
+			v.fieldReferenceFileNames[path.Clean(fileInfo.Path)] = fileInfo.FieldRef
+		} else if fileInfo.ContainerFieldRef != nil {
+			v.fieldReferenceFileNames[path.Clean(fileInfo.Path)] = fileInfo.ContainerFieldRef
+		}
 	}
 	return &downwardAPIVolumeMounter{
 		downwardAPIVolume: v,
@@ -98,7 +102,7 @@ func (plugin *downwardAPIPlugin) NewUnmounter(volName string, podUID types.UID) 
 // downwardAPIVolume retrieves downward API data and placing them into the volume on the host.
 type downwardAPIVolume struct {
 	volName                 string
-	fieldReferenceFileNames map[string]api.ObjectFieldSelector
+	fieldReferenceFileNames map[string]*api.ObjectFieldSelector
 	pod                     *api.Pod
 	podUID                  types.UID // TODO: remove this redundancy as soon NewUnmounter func will have *api.POD and not only types.UID
 	plugin                  *downwardAPIPlugin
