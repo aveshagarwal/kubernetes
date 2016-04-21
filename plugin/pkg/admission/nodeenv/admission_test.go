@@ -1,4 +1,4 @@
-package admission
+package nodeenv
 
 import (
 	"testing"
@@ -6,6 +6,7 @@ import (
 	"k8s.io/kubernetes/pkg/admission"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/client/cache"
+	clientsetfake "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/fake"
 	"k8s.io/kubernetes/pkg/client/unversioned/testclient"
 	projectcache "k8s.io/kubernetes/plugin/pkg/admission/nodeenv/cache"
 	"k8s.io/kubernetes/plugin/pkg/admission/nodeenv/labelselector"
@@ -20,10 +21,11 @@ func TestPodAdmission(t *testing.T) {
 			Namespace: "",
 		},
 	}
-	projectStore := cache.NewStore(cache.IndexFuncToKeyFuncAdapter(cache.MetaNamespaceIndexFunc))
+	projectStore := projectcache.NewCacheStore(cache.IndexFuncToKeyFuncAdapter(cache.MetaNamespaceIndexFunc))
 	projectStore.Add(project)
 
-	handler := &podNodeEnvironment{client: mockClient}
+	mockClientset := clientsetfake.NewSimpleClientset()
+	handler := &podNodeEnvironment{client: mockClientset}
 	pod := &kapi.Pod{
 		ObjectMeta: kapi.ObjectMeta{Name: "testPod"},
 	}
@@ -103,13 +105,14 @@ func TestPodAdmission(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		projectcache.FakeProjectCache(mockClient, projectStore, test.defaultNodeSelector)
+		cache := projectcache.NewFake(mockClient.Namespaces(), projectStore, test.defaultNodeSelector)
+		handler.SetProjectCache(cache)
 		if !test.ignoreProjectNodeSelector {
 			project.ObjectMeta.Annotations = map[string]string{"openshift.io/node-selector": test.projectNodeSelector}
 		}
 		pod.Spec = kapi.PodSpec{NodeSelector: test.podNodeSelector}
 
-		err := handler.Admit(admission.NewAttributesRecord(pod, "Pod", "namespace", project.ObjectMeta.Name, "pods", "", admission.Create, nil))
+		err := handler.Admit(admission.NewAttributesRecord(pod, kapi.Kind("Pod"), "namespace", project.ObjectMeta.Name, kapi.Resource("pods"), "", admission.Create, nil))
 		if test.admit && err != nil {
 			t.Errorf("Test: %s, expected no error but got: %s", test.testName, err)
 		} else if !test.admit && err == nil {
@@ -129,13 +132,13 @@ func TestHandles(t *testing.T) {
 		admission.Connect: false,
 		admission.Delete:  false,
 	} {
-		n, err := NewPodNodeEnvironment(nil)
+		nodeEnvionment, err := NewPodNodeEnvironment(nil)
 		if err != nil {
-			t.Error(err)
+			t.Errorf("%v: error getting node environment: %v", op, err)
 			continue
 		}
 
-		if e, a := shouldHandle, n.Handles(op); e != a {
+		if e, a := shouldHandle, nodeEnvionment.Handles(op); e != a {
 			t.Errorf("%v: shouldHandle=%t, handles=%t", op, e, a)
 		}
 	}
