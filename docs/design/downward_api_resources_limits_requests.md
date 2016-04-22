@@ -244,10 +244,19 @@ limits to be exposed as environment variables.
 
 | Env Var Name | Container Field Reference |
 | -------------------- | -------------------|
-| CPU_LIMIT | container-name|resources.limits.cpu |
+| CPU_LIMIT | resources.limits.cpu |
 | MEMORY_LIMIT | resources.limits.memory |
 | CPU_REQUEST | resources.requests.cpu |
 | MEMORY_REQUEST | resources.requests.memory |
+
+|             |          Grouping           ||
+First Header  | Second Header | Third Header |
+ ------------ | :-----------: | -----------: |
+Content       |          *Long Cell*        ||
+Content       |   **Cell**    |         Cell |
+
+New section   |     More      |         Data |
+And more      | With an escaped '\|'         ||
 
 Since environment variables are container scoped, there is no need
 to specify container name as part of the partial selectors as they are
