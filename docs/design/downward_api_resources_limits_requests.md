@@ -239,12 +239,12 @@ relative to the container spec.
 
 #### Environment variables
 
-This table shows how selectors can be used for various requests and
+This table shows how partial selectors can be used for various requests and
 limits to be exposed as environment variables.
 
 | Env Var Name | Container Field Reference |
 | -------------------- | -------------------|
-| CPU_LIMIT | |container-name|resources.limits.cpu| |
+| CPU_LIMIT | container-name|resources.limits.cpu |
 | MEMORY_LIMIT | resources.limits.memory |
 | CPU_REQUEST | resources.requests.cpu |
 | MEMORY_REQUEST | resources.requests.memory |
