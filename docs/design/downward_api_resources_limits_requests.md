@@ -387,7 +387,7 @@ type ResourceFieldSelector struct {
         // Container name
         Name string `json:"containerName,omitempty"`
         // Required: Resource to select
-        FieldPath string `json:"resource"`
+        Resource string `json:"resource"`
 }
 
 // Represents a single file containing information from the downward API
