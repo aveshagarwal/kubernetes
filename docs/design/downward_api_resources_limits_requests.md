@@ -120,7 +120,7 @@ To summarize merits/demerits of each approach:
 |Partial selectors | Container | Yes | Yes | Possible |
 |No selectors | Pod/Container | No | No | Possible|
 
-### API with full json path selectors
+### API with full JSONpath selectors
 
 Full json path selectors specify the complete path to the resources
 limits and requests relative to pod spec.
@@ -130,7 +130,7 @@ limits and requests relative to pod spec.
 This table shows how selectors can be used for various requests and
 limits to be exposed as environment variables.
 
-| Name | Selectors |
+| Name | Selector |
 | ---- | ------------------- |
 | CPU_LIMIT | spec.containers[?(@.name=="container-name")].resources.limits.cpu|
 | MEMORY_LIMIT | spec.containers[?(@.name=="container-name")].resources.limits.memory|
@@ -142,12 +142,12 @@ limits to be exposed as environment variables.
 This table shows how selectors can be used for various requests and
 limits to be exposed as volumes.
 
-| Path | Selectors |
+| Path | Selector |
 | ---- | ------------------- |
 | cpu_limit | spec.containers[?(@.name=="container-name")].resources.limits.cpu|
 | memory_limit| spec.containers[?(@.name=="container-name")].resources.limits.memory|
 | cpu_request | spec.containers[?(@.name=="container-name")].resources.requests.cpu|
-| memory_request |spec.containers[?(@.name=="container-name")].resources.limits.memory|
+| memory_request |spec.containers[?(@.name=="container-name")].resources.requests.memory|
 
 Volumes are pod scoped, so a selector should be specified with a
 particular container name.
@@ -228,80 +228,48 @@ spec:
 ```
 #### Validations
 
-For APIs with full json path selectors, verify that the selector is
+For APIs with full json path selectors, verify that selectors are
 valid relative to pod spec.
 
 
-### API with partial json path selectors
+### API with partial JSONpath selectors
 
 Partial json path selectors specify paths to resources limits and requests
-relative to the container spec.
-
-#### Environment variables
-
-This table shows how partial selectors can be used for various requests and
-limits to be exposed as environment variables.
-
-| Env Var Name | Container Field Reference |
-| -------------------- | -------------------|
-| CPU_LIMIT | resources.limits.cpu |
-| MEMORY_LIMIT | resources.limits.memory |
-| CPU_REQUEST | resources.requests.cpu |
-| MEMORY_REQUEST | resources.requests.memory |
-
-|             |          Grouping           ||
-First Header  | Second Header | Third Header |
- ------------ | :-----------: | -----------: |
-Content       |          *Long Cell*        ||
-Content       |   **Cell**    |         Cell |
-
-New section   |     More      |         Data |
-And more      | With an escaped '\|'         ||
-
-Since environment variables are container scoped, there is no need
-to specify container name as part of the partial selectors as they are
-relative to container spec.
-
-#### Volume plugin
-
-| Path | Selectors |
-| -------------------- | -------------------|
-| cpu_limit | resources.limits.cpu |
-| memory_limit | resources.limits.memory |
-| cpu_request | resources.requests.cpu |
-| memory_request | resources.requests.memory |
-
-Since environment variables are container scoped, the container name must
-be specified as part of their path name. The format is that container
-name and path name must be separated by slash (`/`).
-
-Note: Also, environment variables and volume path names are examples
-only and not necessarily as specified above, and the selectors do not
-have to start with dot.
-
-Partial json selectors will be implemented by introducing
-`containerFieldRef` to extend the current implementation for resources
-requests and limits, and will be part of `type DownwardAPIVolumeFile`
-and `type EnvVarSource` as follows:
+relative to the container spec. These will be implemented by introducing a
+`ContainerFieldSelector` (json: `containerFieldRef`) to extend the current
+implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource struct`:
 
 ```
+// ContainerFieldSelector selects an APIVersioned field of an object.
+type ContainerFieldSelector struct {
+        // Required: Version of the schema the FieldPath is written in terms of.
+        // If no value is specified, it will be defaulted to the APIVersion of
+        // the enclosing object.
+        APIVersion string `json:"apiVersion"`
+        // Container name
+        Name string `json:"containerName,omitempty"`
+        // Required: Path of the field to select in the specified API version
+        FieldPath string `json:"fieldPath"`
+}
+
 // Represents a single file containing information from the downward API
 type DownwardAPIVolumeFile struct {
      // Required: Path is  the relative path name of the file to be created.
      Path string `json:"path"`
-     // Selects a field of the pod: only annotations, labels, name and  namespace are supported.
+     // Selects a field of the pod: only annotations, labels, name and
+     // namespace are supported.
      FieldRef *ObjectFieldSelector `json:"fieldRef, omitempty"`
      // Selects a field of the container: only resources limits and requests
      // (cpu, memory) are currently supported.
-     ContainerFieldRef *ObjectFieldSelector `json:"containerFieldRef,omitempty"`
+     ContainerFieldRef *ContainerFieldSelector `json:"containerFieldRef,omitempty"`
 }
-
 
 // EnvVarSource represents a source for the value of an EnvVar.
 // Only one of its fields may be set.
 type EnvVarSource struct {
-   // Required: Selects a field of the container: only resources limits and requests (cpu, memory) are supported.
-   ContainerFieldRef *ObjectFieldSelector `json:"containerFieldRef,omitempty"`
+   // Required: Selects a field of the container: only resources limits and
+   // requests (cpu, memory) are supported.
+   ContainerFieldRef *ContainerFieldSelector `json:"containerFieldRef,omitempty"`
    // Selects a field of the pod; only name and namespace are supported.
    FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
    // Selects a key of a ConfigMap.
@@ -309,17 +277,41 @@ type EnvVarSource struct {
    // Selects a key of a secret in the pod's namespace.
    SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
-
-// ObjectFieldSelector selects an APIVersioned field of an object.
-type ObjectFieldSelector struct {
-        // Required: Version of the schema the FieldPath is written in terms of.
-        // If no value is specified, it will be defaulted to the APIVersion of the
-        // enclosing object.
-        APIVersion string `json:"apiVersion"`
-        // Required: Path of the field to select in the specified API version
-        FieldPath string `json:"fieldPath"`
-}
 ```
+
+#### Environment variables
+
+This table shows how partial selectors can be used for various requests and
+limits to be exposed as environment variables.
+
+| Env Var Name | Selector |
+| -------------------- | -------------------|
+| CPU_LIMIT | resources.limits.cpu |
+| MEMORY_LIMIT | resources.limits.memory |
+| CPU_REQUEST | resources.requests.cpu |
+| MEMORY_REQUEST | resources.requests.memory |
+
+Since environment variables are container scoped, it is optional
+to specify container name as part of the partial selectors as they are
+relative to container spec. If container name is not specified, then
+it defaults to current container. However, container name could be specified
+to expose variables from other containers.
+
+#### Volume plugin
+
+| Path | Selector |
+| -------------------- | -------------------|
+| cpu_limit | resources.limits.cpu |
+| memory_limit | resources.limits.memory |
+| cpu_request | resources.requests.cpu |
+| memory_request | resources.requests.memory |
+
+Since environment variables are container scoped, the container name must
+be specified as part of the `containerFieldRef` with volumes.
+
+Note: Also, environment variables and volume path names are examples
+only and not necessarily as specified above, and the selectors do not
+have to start with dot.
 
 #### Examples
 
@@ -372,99 +364,91 @@ spec:
         items:
           - path: "container_name/cpu_limit"
             containerFieldRef:
+              containerName: "client-container"
               fieldPath: resources.limits.cpu
 ```
 #### Validations
 
 For APIs with partial json path selectors, verify
-that the selector is valid relative to container spec.
+that selectors are valid relative to container spec.
+Also verify that container name is provided with volumes.
 
 
 ### API with no selectors
 
-In this approach, users specify particular strings to retrieve resources
+In this approach, users specify fixed strings to retrieve resources
 limits and requests. This approach is similar to the existing downward
-API implementation approach.
+API implementation approach. These will be implemented by introducing a
+`ResourceFieldSelector` (json: `resourceFieldRef`) to extend the current
+implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource struct`:
+
+```
+type ResourceFieldSelector struct {
+        // Container name
+        Name string `json:"containerName,omitempty"`
+        // Required: Resource to select
+        FieldPath string `json:"fieldPath"`
+}
+
+// Represents a single file containing information from the downward API
+type DownwardAPIVolumeFile struct {
+     // Required: Path is  the relative path name of the file to be created.
+     Path string `json:"path"`
+     // Selects a field of the pod: only annotations, labels, name and
+     // namespace are supported.
+     FieldRef *ObjectFieldSelector `json:"fieldRef, omitempty"`
+     // Selects a resource of the container: only resources limits and requests
+     // (cpu, memory) are currently supported.
+     ResourceFieldRef *ResourceFieldSelector `json:"resourceFieldRef,omitempty"`
+}
+
+// EnvVarSource represents a source for the value of an EnvVar.
+// Only one of its fields may be set.
+type EnvVarSource struct {
+   // Required: Selects a resource of the container: only resources limits and
+   // requests (cpu, memory) are supported.
+   ResourceFieldRef *ResourceFieldSelector `json:"resourceFieldRef,omitempty"`
+   // Selects a field of the pod; only name and namespace are supported.
+   FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
+   // Selects a key of a ConfigMap.
+   ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
+   // Selects a key of a secret in the pod's namespace.
+   SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty"`
+}
+```
 
 #### Environment variables
 
 This table shows how selectors can be used for various requests and
 limits to be exposed as environment variables.
 
-| Name | Selectors |
+| Name | Resource |
 | -------------------- | -------------------|
-| CPU_LIMIT | resources.limits.cpu |
-| MEMORY_LIMIT |resources.limits.memory |
-| CPU_REQUEST | resources.requests.cpu |
-|MEMORY_REQUEST | resources.requests.memory |
+| CPU_LIMIT | cpu_limit |
+| MEMORY_LIMIT | memory_limit |
+| CPU_REQUEST | cpu_request |
+|MEMORY_REQUEST | memory_request |
 
-Since environment variables are container scoped, there is no need
-to specify container name as part of this approach as they are relative
-to container spec.
+Since environment variables are container scoped, it is optional
+to specify container name as part of the partial selectors as they are
+relative to container spec. If container name is not specified, then
+it defaults to current container. However, container name could be specified
+to expose variables from other containers.
 
 #### Volume plugin
 
-| Path | Selectors |
+| Path | Resource |
 | -------------------- | -------------------|
-| container_name/cpu_limit | resources.limits.cpu |
-|container_name/memory_limit | resources.limits.memory|
-|container_name/cpu_request | resources.requests.cpu |
-|container_name/memory_request | resources.requests.memory |
-
-Please note that in this case, the selectors specified are similar to
-partial selector approach, but there is a key difference between these
-selectors and partial selectors how they are processed. Here the selectors
-are processed as fix strings, whereas in partial selectors approach, the
-similar selectors are processed as a json path over a versioned object.
+| cpu_limit | cpu_limit |
+| memory_limit | memory_limit|
+| cpu_request | cpu_request |
+| memory_request | memory_request |
 
 Since environment variables are container scoped, the container name must
-be specified as part of their path name. The format is that container
-name and path name must be separated by slash (`/`). This approach could
-be used for pod level resources in the future by not specifying container
-name as part of the path.
+be specified.
 
 Note: Also, environment variables and volume path names are examples
 only and not necessarily as specified above.
-
-This API will be implemented by introducing `resourceFieldRef` to extend
-the current implementation for resources requests and limits, and will be
-part of `type DownwardAPIVolumeFile` and `type EnvVarSource` as follows:
-
-```
-// Represents a single file containing information from the downward API
-type DownwardAPIVolumeFile struct {
-        // Required: Path is  the relative path name of the file to be created. Must not be absolute or contain the '..' path. Must be utf-8 encoded. The first item of the relative path must not start with '..'
-        Path string `json:"path"`
-        // Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
-        FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
-        // Required: Selects a field of the container: only resources limits and requests (cpu, memory) are supported.
-        ResourceFieldRef *ObjectFieldSelector `json:"resourceFieldRef,omitempty"`
-}
-
-
-// EnvVarSource represents a source for the value of an EnvVar.
-// Only one of its fields may be set.
-type EnvVarSource struct {
-        // Required: Selects a field of the container: only resources limits and requests (cpu, memory) are supported.
-        ResourceFieldRef *ObjectFieldSelector `json:"resourceFieldRef,omitempty"`
-        //Selects a field of the pod; only name and namespace are supported.
-        FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
-        // Selects a key of a ConfigMap.  ConfigMapKeyRef
-        *ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
-        //Selects a key of a secret in the pod's namespace.
-        SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty"`
-}
-
-// ObjectFieldSelector selects an APIVersioned field of an object.
-type ObjectFieldSelector struct {
-        // Required: Version of the schema the FieldPath is written in terms of.
-        // If no value is specified, it will be defaulted to the APIVersion of the
-        // enclosing object.
-        APIVersion string `json:"apiVersion"`
-        // Required: Path of the field to select in the specified API version
-        FieldPath string `json:"fieldPath"`
-}
-```
 
 #### Examples
 
@@ -476,7 +460,8 @@ metadata:
 spec:
   containers:
     - name: test-container
-      image: gcr.io/google_containers/busybox command: [ "/bin/sh","-c", "env" ]
+      image: gcr.io/google_containers/busybox
+      command: [ "/bin/sh","-c", "env" ]
       resources:
         requests:
           memory: "64Mi"
@@ -488,7 +473,7 @@ spec:
         - name: CPU_LIMIT
           valueFrom:
             resourceFieldRef:
-              fieldPath: resources.limits.cpu
+              fieldPath: cpu_limit
 ```
 
 ```
@@ -499,7 +484,8 @@ metadata:
 spec:
   containers:
     - name: client-container
-      image: gcr.io/google_containers/busybox command: ["sh", "-c","while true; do if [[ -e /etc/labels ]]; then cat /etc/labels; fi; if [[ -e /etc/annotations ]]; then cat /etc/annotations; fi; sleep 5; done"]
+      image: gcr.io/google_containers/busybox
+      command: ["sh", "-c","while true; do if [[ -e /etc/labels ]]; then cat /etc/labels; fi; if [[ -e /etc/annotations ]]; then cat /etc/annotations; fi; sleep 5; done"]
       resources:
         requests:
           memory: "64Mi"
@@ -515,14 +501,17 @@ spec:
     - name: podinfo
       downwardAPI:
         items:
-          - path: "container_name/cpu_limit"
+          - path: "cpu_limit"
             resourceFieldRef:
-              fieldPath: resources.limits.cpu
+              containerName: client-container
+              fieldPath: cpu_limit
 ```
+
 #### Validations
 
-For APIs with no selectors, verify that the selector is valid and is one
-of cpu/request_limit and cpu/memory_request.
+For APIs with no selectors, verify that the resource strings are valid and is one
+of `cpu_limit`, `request_limit`, `cpu_request` and `memory_request`.
+Also verify that container name is provided with volumes.
 
 ## Output Format
 
