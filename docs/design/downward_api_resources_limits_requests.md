@@ -118,7 +118,9 @@ To summarize merits/demerits of each approach:
 | ---------- | ------------------- | -------------------| ------------------- | ------------------- |
 |Full selectors | Pod/Container | Yes | Yes | Possible |
 |Partial selectors | Container | Yes | Yes | Possible |
-|No selectors | Pod/Container | No | No | Possible|
+|No selectors | Container | No | No | Possible|
+
+Note: Please note that pod resources can always be accessed using existing `type ObjectFieldSelector` object in conjunction with partial selectors and no selectors approaches.
 
 ### API with full JSONpath selectors
 
@@ -237,7 +239,7 @@ valid relative to pod spec.
 Partial json path selectors specify paths to resources limits and requests
 relative to the container spec. These will be implemented by introducing a
 `ContainerFieldSelector` (json: `containerFieldRef`) to extend the current
-implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource struct`:
+implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource struct`.
 
 ```
 // ContainerFieldSelector selects an APIVersioned field of an object.
@@ -512,6 +514,19 @@ spec:
 For APIs with no selectors, verify that the resource strings are valid and is one
 of `cpu_limit`, `request_limit`, `cpu_request` and `memory_request`.
 Also verify that container name is provided with volumes.
+
+## Pod and container resource access
+Pod resources will always be accessed with `type ObjectFieldSelector` object in
+all approaches. Container resources will be accessed by `type ObjectFieldSelector`
+with full selector approach; and by `type ContainerFieldRef` and `type ResourceFieldRef`
+with partial and no selectors approaches, respectively. The following table
+summarizes pod and container resource access with these approaches.
+
+| Approach | Pod resources| Container resources |
+| -------------------- | -------------------|-------------------|
+| Full selectors | `ObjectFieldSelector` | `ObjectFieldSelector`|
+| Partial selectors | `ObjectFieldSelector`| `ContainerFieldRef` |
+| No selectors | `ObjectFieldSelector`| `ResourceFieldRef` |
 
 ## Output Format
 
