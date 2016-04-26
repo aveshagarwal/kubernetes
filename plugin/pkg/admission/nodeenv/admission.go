@@ -6,7 +6,7 @@ import (
 
 	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
-	apierrors "k8s.io/kubernetes/pkg/api/errors"
+	"k8s.io/kubernetes/pkg/api/errors"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 
 	"k8s.io/kubernetes/plugin/pkg/admission/nodeenv/labelselector"
@@ -19,8 +19,8 @@ func init() {
 }
 
 const (
-	ProjectNodeSelector = "kubernetes.io/node-selector"
-	DefaultNodeSelector = ""
+	NamespaceNodeSelector = "kubernetes.io/node-selector"
+	DefaultNodeSelector   = ""
 )
 
 // podNodeEnvironment is an implementation of admission.Interface.
@@ -30,7 +30,7 @@ type podNodeEnvironment struct {
 	namespace GetNamespaceCache
 }
 
-// Admit enforces that pod and its project node label selectors matches at least a node in the cluster.
+// Admit enforces that pod and its namespace node label selectors matches at least a node in the cluster.
 func (p *podNodeEnvironment) Admit(a admission.Attributes) (err error) {
 	resource := a.GetResource()
 	if resource != api.Resource("pods") {
@@ -58,23 +58,22 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) (err error) {
 		return err
 	}
 
-	projectNodeSelector, err := GetNodeSelectorMap(namespace)
+	namespaceNodeSelector, err := GetNodeSelectorMap(namespace)
 	if err != nil {
 		return err
 	}
 
-	if labelselector.Conflicts(projectNodeSelector, pod.Spec.NodeSelector) {
-		return apierrors.NewForbidden(resource, name, fmt.Errorf("pod node label selector conflicts with its project node label selector"))
+	if labelselector.Conflicts(namespaceNodeSelector, pod.Spec.NodeSelector) {
+		return errors.NewForbidden(resource, name, fmt.Errorf("pod node label selector conflicts with its namespace node label selector"))
 	}
 
-	// modify pod node selector = project node selector + current pod node selector
-	pod.Spec.NodeSelector = labelselector.Merge(projectNodeSelector, pod.Spec.NodeSelector)
+	// modify pod node selector = namespace node selector + current pod node selector
+	pod.Spec.NodeSelector = labelselector.Merge(namespaceNodeSelector, pod.Spec.NodeSelector)
 
 	return nil
 }
 
 func NewPodNodeEnvironment(client clientset.Interface, nsCache GetNamespaceCache) (admission.Interface, error) {
-
 	return &podNodeEnvironment{
 		Handler:   admission.NewHandler(admission.Create),
 		client:    client,
@@ -101,7 +100,7 @@ func GetNodeSelector(namespace *api.Namespace) string {
 	selector := ""
 	found := false
 	if len(namespace.ObjectMeta.Annotations) > 0 {
-		if ns, ok := namespace.ObjectMeta.Annotations[ProjectNodeSelector]; ok {
+		if ns, ok := namespace.ObjectMeta.Annotations[NamespaceNodeSelector]; ok {
 			selector = ns
 			found = true
 		}

@@ -4,115 +4,109 @@ import (
 	"testing"
 
 	"k8s.io/kubernetes/pkg/admission"
-	kapi "k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/cache"
+	"k8s.io/kubernetes/pkg/api"
 	clientsetfake "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/fake"
 	"k8s.io/kubernetes/pkg/client/unversioned/testclient"
-	projectcache "k8s.io/kubernetes/plugin/pkg/admission/nodeenv/cache"
 	"k8s.io/kubernetes/plugin/pkg/admission/nodeenv/labelselector"
 )
 
-// TestPodAdmission verifies various scenarios involving pod/project/global node label selectors
+// TestPodAdmission verifies various scenarios involving pod/namespace/global node label selectors
 func TestPodAdmission(t *testing.T) {
 	mockClient := &testclient.Fake{}
-	project := &kapi.Namespace{
-		ObjectMeta: kapi.ObjectMeta{
-			Name:      "testProject",
+	namespace := &api.Namespace{
+		ObjectMeta: api.ObjectMeta{
+			Name:      "testTestNamespace",
 			Namespace: "",
 		},
 	}
-	projectStore := projectcache.NewCacheStore(cache.IndexFuncToKeyFuncAdapter(cache.MetaNamespaceIndexFunc))
-	projectStore.Add(project)
 
 	mockClientset := clientsetfake.NewSimpleClientset()
 	handler := &podNodeEnvironment{client: mockClientset}
-	pod := &kapi.Pod{
-		ObjectMeta: kapi.ObjectMeta{Name: "testPod"},
+	pod := &api.Pod{
+		ObjectMeta: api.ObjectMeta{Name: "testPod"},
 	}
 
 	tests := []struct {
-		defaultNodeSelector       string
-		projectNodeSelector       string
-		podNodeSelector           map[string]string
-		mergedNodeSelector        map[string]string
-		ignoreProjectNodeSelector bool
-		admit                     bool
-		testName                  string
+		defaultNodeSelector             string
+		namespaceNodeSelector           string
+		podNodeSelector                 map[string]string
+		mergedNodeSelector              map[string]string
+		ignoreTestNamespaceNodeSelector bool
+		admit                           bool
+		testName                        string
 	}{
 		{
-			defaultNodeSelector:       "",
-			podNodeSelector:           map[string]string{},
-			mergedNodeSelector:        map[string]string{},
-			ignoreProjectNodeSelector: true,
+			defaultNodeSelector:             "",
+			podNodeSelector:                 map[string]string{},
+			mergedNodeSelector:              map[string]string{},
+			ignoreTestNamespaceNodeSelector: true,
 			admit:    true,
 			testName: "No node selectors",
 		},
 		{
-			defaultNodeSelector:       "infra = false",
-			podNodeSelector:           map[string]string{},
-			mergedNodeSelector:        map[string]string{"infra": "false"},
-			ignoreProjectNodeSelector: true,
+			defaultNodeSelector:             "infra = false",
+			podNodeSelector:                 map[string]string{},
+			mergedNodeSelector:              map[string]string{"infra": "false"},
+			ignoreTestNamespaceNodeSelector: true,
 			admit:    true,
 			testName: "Default node selector and no conflicts",
 		},
 		{
-			defaultNodeSelector: "",
-			projectNodeSelector: "infra = false",
-			podNodeSelector:     map[string]string{},
-			mergedNodeSelector:  map[string]string{"infra": "false"},
-			admit:               true,
-			testName:            "Project node selector and no conflicts",
+			defaultNodeSelector:   "",
+			namespaceNodeSelector: "infra = false",
+			podNodeSelector:       map[string]string{},
+			mergedNodeSelector:    map[string]string{"infra": "false"},
+			admit:                 true,
+			testName:              "TestNamespace node selector and no conflicts",
 		},
 		{
-			defaultNodeSelector: "infra = false",
-			projectNodeSelector: "",
-			podNodeSelector:     map[string]string{},
-			mergedNodeSelector:  map[string]string{},
-			admit:               true,
-			testName:            "Empty project node selector and no conflicts",
+			defaultNodeSelector:   "infra = false",
+			namespaceNodeSelector: "",
+			podNodeSelector:       map[string]string{},
+			mergedNodeSelector:    map[string]string{},
+			admit:                 true,
+			testName:              "Empty namespace node selector and no conflicts",
 		},
 		{
-			defaultNodeSelector: "infra = false",
-			projectNodeSelector: "infra=true",
-			podNodeSelector:     map[string]string{},
-			mergedNodeSelector:  map[string]string{"infra": "true"},
-			admit:               true,
-			testName:            "Default and project node selector, no conflicts",
+			defaultNodeSelector:   "infra = false",
+			namespaceNodeSelector: "infra=true",
+			podNodeSelector:       map[string]string{},
+			mergedNodeSelector:    map[string]string{"infra": "true"},
+			admit:                 true,
+			testName:              "Default and namespace node selector, no conflicts",
 		},
 		{
-			defaultNodeSelector: "infra = false",
-			projectNodeSelector: "infra=true",
-			podNodeSelector:     map[string]string{"env": "test"},
-			mergedNodeSelector:  map[string]string{"infra": "true", "env": "test"},
-			admit:               true,
-			testName:            "Project and pod node selector, no conflicts",
+			defaultNodeSelector:   "infra = false",
+			namespaceNodeSelector: "infra=true",
+			podNodeSelector:       map[string]string{"env": "test"},
+			mergedNodeSelector:    map[string]string{"infra": "true", "env": "test"},
+			admit:                 true,
+			testName:              "TestNamespace and pod node selector, no conflicts",
 		},
 		{
-			defaultNodeSelector: "env = test",
-			projectNodeSelector: "infra=true",
-			podNodeSelector:     map[string]string{"infra": "false"},
-			mergedNodeSelector:  map[string]string{"infra": "false"},
-			admit:               false,
-			testName:            "Conflicting pod and project node selector, one label",
+			defaultNodeSelector:   "env = test",
+			namespaceNodeSelector: "infra=true",
+			podNodeSelector:       map[string]string{"infra": "false"},
+			mergedNodeSelector:    map[string]string{"infra": "false"},
+			admit:                 false,
+			testName:              "Conflicting pod and namespace node selector, one label",
 		},
 		{
-			defaultNodeSelector: "env=dev",
-			projectNodeSelector: "infra=false, env = test",
-			podNodeSelector:     map[string]string{"env": "dev", "color": "blue"},
-			mergedNodeSelector:  map[string]string{"env": "dev", "color": "blue"},
-			admit:               false,
-			testName:            "Conflicting pod and project node selector, multiple labels",
+			defaultNodeSelector:   "env=dev",
+			namespaceNodeSelector: "infra=false, env = test",
+			podNodeSelector:       map[string]string{"env": "dev", "color": "blue"},
+			mergedNodeSelector:    map[string]string{"env": "dev", "color": "blue"},
+			admit:                 false,
+			testName:              "Conflicting pod and namespace node selector, multiple labels",
 		},
 	}
 	for _, test := range tests {
-		cache := projectcache.NewFake(mockClient.Namespaces(), projectStore, test.defaultNodeSelector)
-		handler.SetProjectCache(cache)
-		if !test.ignoreProjectNodeSelector {
-			project.ObjectMeta.Annotations = map[string]string{"openshift.io/node-selector": test.projectNodeSelector}
+		if !test.ignoreTestNamespaceNodeSelector {
+			namespace.ObjectMeta.Annotations = map[string]string{"kubernetes.io/node-selector": test.namespaceNodeSelector}
 		}
-		pod.Spec = kapi.PodSpec{NodeSelector: test.podNodeSelector}
+		pod.Spec = api.PodSpec{NodeSelector: test.podNodeSelector}
 
-		err := handler.Admit(admission.NewAttributesRecord(pod, kapi.Kind("Pod"), "namespace", project.ObjectMeta.Name, kapi.Resource("pods"), "", admission.Create, nil))
+		err := handler.Admit(admission.NewAttributesRecord(pod, api.Kind("Pod"), "namespace", namespace.ObjectMeta.Name, api.Resource("pods"), "", admission.Create, nil))
 		if test.admit && err != nil {
 			t.Errorf("Test: %s, expected no error but got: %s", test.testName, err)
 		} else if !test.admit && err == nil {
