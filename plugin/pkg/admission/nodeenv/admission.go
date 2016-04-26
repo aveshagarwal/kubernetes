@@ -5,35 +5,35 @@ import (
 	"io"
 
 	"k8s.io/kubernetes/pkg/admission"
-	kapi "k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api"
 	apierrors "k8s.io/kubernetes/pkg/api/errors"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 
-	oadmission "github.com/openshift/origin/pkg/cmd/server/admission"
-	"k8s.io/kubernetes/plugin/pkg/admission/nodeenv/cache"
 	"k8s.io/kubernetes/plugin/pkg/admission/nodeenv/labelselector"
 )
 
 func init() {
 	admission.RegisterPlugin("PodNodeEnvironment", func(client clientset.Interface, config io.Reader) (admission.Interface, error) {
-		return NewPodNodeEnvironment(client)
+		return NewPodNodeEnvironment(client, nil)
 	})
 }
+
+const (
+	ProjectNodeSelector = "kubernetes.io/node-selector"
+	DefaultNodeSelector = ""
+)
 
 // podNodeEnvironment is an implementation of admission.Interface.
 type podNodeEnvironment struct {
 	*admission.Handler
-	client clientset.Interface
-	cache  *cache.ProjectCache
+	client    clientset.Interface
+	namespace GetNamespaceCache
 }
-
-var _ = oadmission.WantsProjectCache(&podNodeEnvironment{})
-var _ = oadmission.Validator(&podNodeEnvironment{})
 
 // Admit enforces that pod and its project node label selectors matches at least a node in the cluster.
 func (p *podNodeEnvironment) Admit(a admission.Attributes) (err error) {
 	resource := a.GetResource()
-	if resource != kapi.Resource("pods") {
+	if resource != api.Resource("pods") {
 		return nil
 	}
 	if a.GetSubresource() != "" {
@@ -42,21 +42,23 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) (err error) {
 	}
 
 	obj := a.GetObject()
-	pod, ok := obj.(*kapi.Pod)
+	pod, ok := obj.(*api.Pod)
 	if !ok {
 		return nil
 	}
 
 	name := pod.Name
 
-	if !p.cache.Running() {
+	if p.namespace == nil {
+		p.namespace = &DefaultGetNamespaceCache{client: p.client}
+	}
+
+	namespace, err := p.namespace.GetNamespace(a.GetNamespace())
+	if err != nil {
 		return err
 	}
-	namespace, err := p.cache.GetNamespace(a.GetNamespace())
-	if err != nil {
-		return apierrors.NewForbidden(resource, name, err)
-	}
-	projectNodeSelector, err := p.cache.GetNodeSelectorMap(namespace)
+
+	projectNodeSelector, err := GetNodeSelectorMap(namespace)
 	if err != nil {
 		return err
 	}
@@ -71,23 +73,50 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) (err error) {
 	return nil
 }
 
-func (p *podNodeEnvironment) SetProjectCache(c *cache.ProjectCache) {
-	p.cache = c
-}
-
-func (p *podNodeEnvironment) Validate() error {
-	if p.cache == nil {
-		return fmt.Errorf("project node environment plugin needs a project cache")
-	}
-	return nil
-}
-
-func NewPodNodeEnvironment(client clientset.Interface) (admission.Interface, error) {
-
-	projectcache.RunProjectCache(client, "")
+func NewPodNodeEnvironment(client clientset.Interface, nsCache GetNamespaceCache) (admission.Interface, error) {
 
 	return &podNodeEnvironment{
-		Handler: admission.NewHandler(admission.Create),
-		client:  client,
+		Handler:   admission.NewHandler(admission.Create),
+		client:    client,
+		namespace: nsCache,
 	}, nil
+}
+
+type DefaultGetNamespaceCache struct {
+	client clientset.Interface
+}
+
+// ensure DefaultGetNamespacecache implements the GetNamespaceCache interface.
+var _ GetNamespaceCache = &DefaultGetNamespaceCache{}
+
+func (d *DefaultGetNamespaceCache) GetNamespace(name string) (*api.Namespace, error) {
+	namespace, err := d.client.Core().Namespaces().Get(name)
+	if err != nil {
+		return nil, fmt.Errorf("namespace %s does not exist", name)
+	}
+	return namespace, nil
+}
+
+func GetNodeSelector(namespace *api.Namespace) string {
+	selector := ""
+	found := false
+	if len(namespace.ObjectMeta.Annotations) > 0 {
+		if ns, ok := namespace.ObjectMeta.Annotations[ProjectNodeSelector]; ok {
+			selector = ns
+			found = true
+		}
+	}
+	if !found {
+		selector = DefaultNodeSelector
+	}
+	return selector
+}
+
+func GetNodeSelectorMap(namespace *api.Namespace) (map[string]string, error) {
+	selector := GetNodeSelector(namespace)
+	labelsMap, err := labelselector.Parse(selector)
+	if err != nil {
+		return map[string]string{}, err
+	}
+	return labelsMap, nil
 }
