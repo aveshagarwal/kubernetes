@@ -362,7 +362,7 @@ spec:
     - name: podinfo
       downwardAPI:
         items:
-          - path: "container_name/cpu_limit"
+          - path: "cpu_limit"
             containerFieldRef:
               containerName: "client-container"
               fieldPath: resources.limits.cpu
@@ -387,7 +387,7 @@ type ResourceFieldSelector struct {
         // Container name
         Name string `json:"containerName,omitempty"`
         // Required: Resource to select
-        FieldPath string `json:"fieldPath"`
+        FieldPath string `json:"resource"`
 }
 
 // Represents a single file containing information from the downward API
@@ -473,7 +473,7 @@ spec:
         - name: CPU_LIMIT
           valueFrom:
             resourceFieldRef:
-              fieldPath: cpu_limit
+              resource: cpu_limit
 ```
 
 ```
@@ -504,7 +504,7 @@ spec:
           - path: "cpu_limit"
             resourceFieldRef:
               containerName: client-container
-              fieldPath: cpu_limit
+              resource: cpu_limit
 ```
 
 #### Validations
