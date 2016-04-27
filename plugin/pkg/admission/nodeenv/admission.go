@@ -26,12 +26,12 @@ const (
 // podNodeEnvironment is an implementation of admission.Interface.
 type podNodeEnvironment struct {
 	*admission.Handler
-	client    clientset.Interface
-	namespace GetNamespaceCache
+	client  clientset.Interface
+	nsCache GetNamespaceCache
 }
 
 // Admit enforces that pod and its namespace node label selectors matches at least a node in the cluster.
-func (p *podNodeEnvironment) Admit(a admission.Attributes) (err error) {
+func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 	resource := a.GetResource()
 	if resource != api.Resource("pods") {
 		return nil
@@ -48,14 +48,22 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) (err error) {
 	}
 
 	name := pod.Name
+	nsName := a.GetNamespace()
 
-	if p.namespace == nil {
-		p.namespace = &DefaultGetNamespaceCache{client: p.client}
+	var namespace *api.Namespace
+	var err error
+	if p.nsCache != nil {
+		namespace, err = p.nsCache.GetNamespace(nsName)
+		if err != nil {
+			return err
+		}
 	}
 
-	namespace, err := p.namespace.GetNamespace(a.GetNamespace())
-	if err != nil {
-		return err
+	if namespace == nil {
+		namespace, err = p.DefaultGetNamespace(nsName)
+		if err != nil {
+			return err
+		}
 	}
 
 	namespaceNodeSelector, err := GetNodeSelectorMap(namespace)
@@ -75,21 +83,14 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) (err error) {
 
 func NewPodNodeEnvironment(client clientset.Interface, nsCache GetNamespaceCache) (admission.Interface, error) {
 	return &podNodeEnvironment{
-		Handler:   admission.NewHandler(admission.Create),
-		client:    client,
-		namespace: nsCache,
+		Handler: admission.NewHandler(admission.Create),
+		client:  client,
+		nsCache: nsCache,
 	}, nil
 }
 
-type DefaultGetNamespaceCache struct {
-	client clientset.Interface
-}
-
-// ensure DefaultGetNamespacecache implements the GetNamespaceCache interface.
-var _ GetNamespaceCache = &DefaultGetNamespaceCache{}
-
-func (d *DefaultGetNamespaceCache) GetNamespace(name string) (*api.Namespace, error) {
-	namespace, err := d.client.Core().Namespaces().Get(name)
+func (p *podNodeEnvironment) DefaultGetNamespace(name string) (*api.Namespace, error) {
+	namespace, err := p.client.Core().Namespaces().Get(name)
 	if err != nil {
 		return nil, fmt.Errorf("namespace %s does not exist", name)
 	}
