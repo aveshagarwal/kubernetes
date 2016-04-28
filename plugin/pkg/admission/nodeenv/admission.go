@@ -8,8 +8,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-
-	"k8s.io/kubernetes/plugin/pkg/admission/nodeenv/labelselector"
+	"k8s.io/kubernetes/pkg/labels"
 )
 
 func init() {
@@ -71,12 +70,12 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 		return err
 	}
 
-	if labelselector.Conflicts(namespaceNodeSelector, pod.Spec.NodeSelector) {
+	if labels.Conflicts(namespaceNodeSelector, pod.Spec.NodeSelector) {
 		return errors.NewForbidden(resource, name, fmt.Errorf("pod node label selector conflicts with its namespace node label selector"))
 	}
 
 	// modify pod node selector = namespace node selector + current pod node selector
-	pod.Spec.NodeSelector = labelselector.Merge(namespaceNodeSelector, pod.Spec.NodeSelector)
+	pod.Spec.NodeSelector = labels.Merge(namespaceNodeSelector, pod.Spec.NodeSelector)
 
 	return nil
 }
@@ -114,7 +113,7 @@ func GetNodeSelector(namespace *api.Namespace) string {
 
 func GetNodeSelectorMap(namespace *api.Namespace) (map[string]string, error) {
 	selector := GetNodeSelector(namespace)
-	labelsMap, err := labelselector.Parse(selector)
+	labelsMap, err := labels.ConvertStringtoMap(selector)
 	if err != nil {
 		return map[string]string{}, err
 	}
