@@ -31,7 +31,7 @@ type podNodeEnvironment struct {
 
 // Admit enforces that pod and its namespace node label selectors matches at least a node in the cluster.
 func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
-	resource := a.GetResource()
+	resource := a.GetResource().GroupResource()
 	if resource != api.Resource("pods") {
 		return nil
 	}
