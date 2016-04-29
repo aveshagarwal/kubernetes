@@ -881,28 +881,24 @@ func Equals(labels1, labels2 map[string]string) bool {
 }
 
 // Convert string to map
-func ConvertStringtoLabelsMap(tmp string) (map[string]string, error) {
+func ConvertSelectortoLabelsMap(selector string) (map[string]string, error) {
 	labelsMap := map[string]string{}
 
-	if len(tmp) != 0 {
-		labels := strings.Split(tmp, ",")
-
+	if len(selector) != 0 {
+		labels := strings.Split(selector, ",")
 		for _, label := range labels {
 			l := strings.Split(label, "=")
 			if len(l) == 2 {
 				if err := validateLabelKey(l[0]); err != nil {
 					return labelsMap, err
 				}
-
 				if err := validateLabelValue(l[1]); err != nil {
 					return labelsMap, err
 				}
-
 				labelsMap[l[0]] = l[1]
 			} else {
 				return labelsMap, fmt.Errorf("invalid selector: %s", l)
 			}
-
 		}
 	}
 	return labelsMap, nil

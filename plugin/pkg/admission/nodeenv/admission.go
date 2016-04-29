@@ -109,7 +109,7 @@ func GetNodeSelectorMap(namespace *api.Namespace) (map[string]string, error) {
 		selector = DefaultNodeSelector
 	}
 
-	labelsMap, err := labels.ConvertStringtoLabelsMap(selector)
+	labelsMap, err := labels.ConvertSelectortoLabelsMap(selector)
 	if err != nil {
 		return map[string]string{}, err
 	}
