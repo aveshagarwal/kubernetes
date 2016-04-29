@@ -880,7 +880,7 @@ func Equals(labels1, labels2 map[string]string) bool {
 	return true
 }
 
-// Convert selector string to labels map and validates keys and values
+// Converts selector string to labels map and validates keys and values
 func ConvertSelectortoLabelsMap(selector string) (map[string]string, error) {
 	labelsMap := map[string]string{}
 
