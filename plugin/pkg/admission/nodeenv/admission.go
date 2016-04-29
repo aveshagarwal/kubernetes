@@ -26,7 +26,7 @@ const (
 type podNodeEnvironment struct {
 	*admission.Handler
 	client  clientset.Interface
-	nsCache GetNamespaceCache
+	nsCache NamespaceCache
 }
 
 // Admit enforces that pod and its namespace node label selectors matches at least a node in the cluster.
@@ -80,7 +80,7 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 	return nil
 }
 
-func NewPodNodeEnvironment(client clientset.Interface, nsCache GetNamespaceCache) (admission.Interface, error) {
+func NewPodNodeEnvironment(client clientset.Interface, nsCache NamespaceCache) (admission.Interface, error) {
 	return &podNodeEnvironment{
 		Handler: admission.NewHandler(admission.Create),
 		client:  client,
@@ -96,7 +96,7 @@ func (p *podNodeEnvironment) DefaultGetNamespace(name string) (*api.Namespace, e
 	return namespace, nil
 }
 
-func GetNodeSelector(namespace *api.Namespace) string {
+func GetNodeSelectorMap(namespace *api.Namespace) (map[string]string, error) {
 	selector := ""
 	found := false
 	if len(namespace.ObjectMeta.Annotations) > 0 {
@@ -108,12 +108,8 @@ func GetNodeSelector(namespace *api.Namespace) string {
 	if !found {
 		selector = DefaultNodeSelector
 	}
-	return selector
-}
 
-func GetNodeSelectorMap(namespace *api.Namespace) (map[string]string, error) {
-	selector := GetNodeSelector(namespace)
-	labelsMap, err := labels.ConvertStringtoMap(selector)
+	labelsMap, err := labels.ConvertStringtoLabelsMap(selector)
 	if err != nil {
 		return map[string]string{}, err
 	}

@@ -881,7 +881,7 @@ func Equals(labels1, labels2 map[string]string) bool {
 }
 
 // Convert string to map
-func ConvertStringtoMap(tmp string) (map[string]string, error) {
+func ConvertStringtoLabelsMap(tmp string) (map[string]string, error) {
 	labelsMap := map[string]string{}
 
 	if len(tmp) != 0 {

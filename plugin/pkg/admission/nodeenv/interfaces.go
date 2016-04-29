@@ -20,6 +20,6 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 )
 
-type GetNamespaceCache interface {
+type NamespaceCache interface {
 	GetNamespace(name string) (*api.Namespace, error)
 }
