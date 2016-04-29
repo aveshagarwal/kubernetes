@@ -809,3 +809,73 @@ func SelectorFromSet(ls Set) Selector {
 func ParseToRequirements(selector string) ([]Requirement, error) {
 	return parse(selector)
 }
+
+// Conflicts takes 2 maps
+// returns true if there a key match between the maps but the value doesn't match
+// returns false in other cases
+func Conflicts(labels1, labels2 map[string]string) bool {
+	for k, v := range labels1 {
+		if val, match := labels2[k]; match {
+			if val != v {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Merge combines given maps
+// Note: It doesn't not check for any conflicts between the maps
+func Merge(labels1, labels2 map[string]string) map[string]string {
+	mergedMap := map[string]string{}
+
+	for k, v := range labels1 {
+		mergedMap[k] = v
+	}
+	for k, v := range labels2 {
+		mergedMap[k] = v
+	}
+	return mergedMap
+}
+
+// Equals returns true if the given maps are equal
+func Equals(labels1, labels2 map[string]string) bool {
+	if len(labels1) != len(labels2) {
+		return false
+	}
+
+	for k, v := range labels1 {
+		value, ok := labels2[k]
+		if !ok {
+			return false
+		}
+		if value != v {
+			return false
+		}
+	}
+	return true
+}
+
+// Convert string to map
+func ConvertSelectortoLabelsMap(selector string) (map[string]string, error) {
+	labelsMap := map[string]string{}
+
+	if len(selector) != 0 {
+		labels := strings.Split(selector, ",")
+		for _, label := range labels {
+			l := strings.Split(label, "=")
+			if len(l) == 2 {
+				if err := validateLabelKey(l[0]); err != nil {
+					return labelsMap, err
+				}
+				if err := validateLabelValue(l[1]); err != nil {
+					return labelsMap, err
+				}
+				labelsMap[l[0]] = l[1]
+			} else {
+				return labelsMap, fmt.Errorf("invalid selector: %s", l)
+			}
+		}
+	}
+	return labelsMap, nil
+}
