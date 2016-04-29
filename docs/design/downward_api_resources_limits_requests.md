@@ -66,7 +66,7 @@ the same time, it is simpler to specify than full json path selectors.
 3. In this approach, users specify fixed strings to retrieve
 resources limits and requests and do not specify any json path
 selectors. This approach is similar to the existing downward API
-implementation approach. The advantages of this approach is that it is
+implementation approach. The advantages of this approach are that it is
 simpler to specify that the first two, and does not require any type of
 conversion between internal and versioned objects or json selectors as
 discussed below.
@@ -78,8 +78,8 @@ to their use.
 #### JSONpath selectors
 
 Versioned objects in kubernetes have json tags as part of their golang fields.
-Although currently internal objects in kubernetes also have json tags but these
-tags should be removed in future (see [3933](https://github.com/kubernetes/kubernetes/issues/3933)
+Currently, objects in the internal API have json tags, but it is planned that
+these will eventually be removed (see [3933](https://github.com/kubernetes/kubernetes/issues/3933)
 for discussion). So for discussion in this proposal, we assume that
 internal objects do not have json tags. In the first two approaches
 (full and partial json selectors), when a user creates a pod and its
@@ -130,9 +130,11 @@ limits and requests relative to pod spec.
 #### Environment variables
 
 This table shows how selectors can be used for various requests and
-limits to be exposed as environment variables.
+limits to be exposed as environment variables. Environment variable names
+are examples only and not necessarily as specified, and the selectors do not
+have to start with dot.
 
-| Name | Selector |
+| Env Var Name | Selector |
 | ---- | ------------------- |
 | CPU_LIMIT | spec.containers[?(@.name=="container-name")].resources.limits.cpu|
 | MEMORY_LIMIT | spec.containers[?(@.name=="container-name")].resources.limits.memory|
@@ -142,7 +144,9 @@ limits to be exposed as environment variables.
 #### Volume plugin
 
 This table shows how selectors can be used for various requests and
-limits to be exposed as volumes.
+limits to be exposed as volumes. The path names are examples only and
+not necessarily as specified, and the selectors do not have to start with dot.
+
 
 | Path | Selector |
 | ---- | ------------------- |
@@ -153,10 +157,6 @@ limits to be exposed as volumes.
 
 Volumes are pod scoped, so a selector should be specified with a
 particular container name.
-
-Note: environment variables and volume path names are examples only and
-not necessarily as specified above, and the selectors do not have to
-start with dot.
 
 Full json path selectors will use existing `type ObjectFieldSelector`
 to extend the current implementation for resources requests and limits.
@@ -171,6 +171,7 @@ type ObjectFieldSelector struct {
 ```
 
 #### Examples
+These examples show how to use full selectors with environment variables and volume plugin.
 
 ```
 apiVersion: v1
@@ -225,6 +226,7 @@ spec:
             fieldRef:
               fieldPath: spec.containers[?(@.name=="container-name")].resources.limits.cpu
 ```
+
 #### Validations
 
 For APIs with full json path selectors, verify that selectors are
@@ -276,9 +278,10 @@ type EnvVarSource struct {
 ```
 
 #### Environment variables
-
 This table shows how partial selectors can be used for various requests and
-limits to be exposed as environment variables.
+limits to be exposed as environment variables. Environment variable names
+are examples only and not necessarily as specified, and the selectors do not
+have to start with dot.
 
 | Env Var Name | Selector |
 | -------------------- | -------------------|
@@ -294,6 +297,9 @@ it defaults to current container. However, container name could be specified
 to expose variables from other containers.
 
 #### Volume plugin
+This table shows volume paths and partial selectors used for resources cpu and memory.
+Volume path names are examples only and not necessarily as specified, and the
+selectors do not have to start with dot.
 
 | Path | Selector |
 | -------------------- | -------------------|
@@ -305,11 +311,8 @@ to expose variables from other containers.
 Since environment variables are container scoped, the container name must
 be specified as part of the `containerFieldRef` with volumes.
 
-Note: Also, environment variables and volume path names are examples
-only and not necessarily as specified above, and the selectors do not
-have to start with dot.
-
 #### Examples
+These examples show how to use partial selectors with environment variables and volume plugin.
 
 ```
 apiVersion: v1
@@ -372,10 +375,13 @@ Also verify that container name is provided with volumes.
 
 ### API with no selectors
 
-In this approach, users specify fixed strings to retrieve resources
+In this approach, users specify fixed strings (or magic keys) to retrieve resources
 limits and requests. This approach is similar to the existing downward
-API implementation approach. These will be implemented by introducing a
-`ResourceFieldSelector` (json: `resourceFieldRef`) to extend the current
+API implementation approach. The fixed string used for resources limits and requests
+for cpu and memory are `resources.limits.cpu`, `resources.limits.memory`,
+`resources.requests.cpu` and `resources.requests.memory`. Though these strings are same
+as json path selectors but are processed as fixed strings. These will be implemented by
+introducing a `ResourceFieldSelector` (json: `resourceFieldRef`) to extend the current
 implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource struct`:
 
 ```
@@ -414,16 +420,15 @@ type EnvVarSource struct {
 ```
 
 #### Environment variables
+This table shows environment variable names and strings used for resources cpu and memory.
+The variable names are examples only and not necessarily as specified.
 
-This table shows how selectors can be used for various requests and
-limits to be exposed as environment variables.
-
-| Name | Resource |
+| Env Var Name | Resource |
 | -------------------- | -------------------|
-| CPU_LIMIT | cpu_limit |
-| MEMORY_LIMIT | memory_limit |
-| CPU_REQUEST | cpu_request |
-|MEMORY_REQUEST | memory_request |
+| CPU_LIMIT | resources.limits.cpu |
+| MEMORY_LIMIT | resources.limits.memory |
+| CPU_REQUEST | resources.requests.cpu |
+| MEMORY_REQUEST | resources.requests.memory |
 
 Since environment variables are container scoped, it is optional
 to specify container name as part of the partial selectors as they are
@@ -432,21 +437,21 @@ it defaults to current container. However, container name could be specified
 to expose variables from other containers.
 
 #### Volume plugin
+This table shows volume paths and strings used for resources cpu and memory.
+Volume path names are examples only and not necessarily as specified.
 
 | Path | Resource |
 | -------------------- | -------------------|
-| cpu_limit | cpu_limit |
-| memory_limit | memory_limit|
-| cpu_request | cpu_request |
-| memory_request | memory_request |
+| cpu_limit | resources.limits.cpu |
+| memory_limit | resources.limits.memory|
+| cpu_request | resources.requests.cpu |
+| memory_request | resources.requests.memory |
 
 Since environment variables are container scoped, the container name must
 be specified.
 
-Note: Also, environment variables and volume path names are examples
-only and not necessarily as specified above.
-
 #### Examples
+These examples show how to use no selectors approach with environment variables and volume plugin.
 
 ```
 apiVersion: v1
@@ -469,7 +474,7 @@ spec:
         - name: CPU_LIMIT
           valueFrom:
             resourceFieldRef:
-              resource: cpu_limit
+              resource: resources.limits.cpu
 ```
 
 ```
@@ -500,21 +505,21 @@ spec:
           - path: "cpu_limit"
             resourceFieldRef:
               containerName: client-container
-              resource: cpu_limit
+              resource: resources.limits.cpu
 ```
 
 #### Validations
 
 For APIs with no selectors, verify that the resource strings are valid and is one
-of `cpu_limit`, `request_limit`, `cpu_request` and `memory_request`.
+of `resources.limits.cpu`, `resources.limits.memory`, `resources.requests.cpu` and `resources.requests.memory`.
 Also verify that container name is provided with volumes.
 
-## Pod and container resource access
-Pod resources will always be accessed with `type ObjectFieldSelector` object in
-all approaches. Container resources will be accessed by `type ObjectFieldSelector`
+## Pod and container level resource access
+Pod level resources (like `metadata.name`, `status.podIP`) will always be accessed with `type ObjectFieldSelector` object in
+all approaches. Container level resources will be accessed by `type ObjectFieldSelector`
 with full selector approach; and by `type ContainerFieldRef` and `type ResourceFieldRef`
 with partial and no selectors approaches, respectively. The following table
-summarizes pod and container resource access with these approaches.
+summarizes resource access with these approaches.
 
 | Approach | Pod resources| Container resources |
 | -------------------- | -------------------|-------------------|
@@ -528,7 +533,7 @@ The output format for resources limits and requests will be same as
 cgroups output format, i.e. cpu in cpu shares (cores multiplied by 1024
 and rounded to integer) and memory in bytes. For example, memory request
 or limit of `64Mi` in the container spec will be output as `67108864`
-bytes, and cpu request or limit of `250m` (milicores) will be output as
+bytes, and cpu request or limit of `250m` (millicores) will be output as
 `256` of cpu shares.
 
 
