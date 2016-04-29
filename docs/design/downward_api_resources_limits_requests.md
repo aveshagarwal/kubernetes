@@ -164,9 +164,6 @@ to extend the current implementation for resources requests and limits.
 ```
 // ObjectFieldSelector selects an APIVersioned field of an object.
 type ObjectFieldSelector struct {
-        // Required: Version of the schema the FieldPath is written in terms of.
-        // If no value is specified, it will be defaulted to the APIVersion of the
-        // enclosing object.
         APIVersion string `json:"apiVersion"`
         // Required: Path of the field to select in the specified API version
         FieldPath string `json:"fieldPath"`
@@ -244,9 +241,6 @@ implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource st
 ```
 // ContainerFieldSelector selects an APIVersioned field of an object.
 type ContainerFieldSelector struct {
-        // Required: Version of the schema the FieldPath is written in terms of.
-        // If no value is specified, it will be defaulted to the APIVersion of
-        // the enclosing object.
         APIVersion string `json:"apiVersion"`
         // Container name
         Name string `json:"containerName,omitempty"`
