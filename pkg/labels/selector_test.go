@@ -573,3 +573,73 @@ func TestAdd(t *testing.T) {
 		}
 	}
 }
+
+func TestLabelConflict(t *testing.T) {
+	tests := []struct {
+		labels1  map[string]string
+		labels2  map[string]string
+		conflict bool
+	}{
+		{
+			labels1:  map[string]string{},
+			labels2:  map[string]string{},
+			conflict: false,
+		},
+		{
+			labels1:  map[string]string{"env": "test"},
+			labels2:  map[string]string{"infra": "true"},
+			conflict: false,
+		},
+		{
+			labels1:  map[string]string{"env": "test"},
+			labels2:  map[string]string{"infra": "true", "env": "test"},
+			conflict: false,
+		},
+		{
+			labels1:  map[string]string{"env": "test"},
+			labels2:  map[string]string{"env": "dev"},
+			conflict: true,
+		},
+		{
+			labels1:  map[string]string{"env": "test", "infra": "false"},
+			labels2:  map[string]string{"infra": "true", "color": "blue"},
+			conflict: true,
+		},
+	}
+	for _, test := range tests {
+		conflict := Conflicts(test.labels1, test.labels2)
+		if conflict != test.conflict {
+			t.Errorf("expected: %v but got: %v", test.conflict, conflict)
+		}
+	}
+}
+
+func TestLabelMerge(t *testing.T) {
+	tests := []struct {
+		labels1      map[string]string
+		labels2      map[string]string
+		mergedLabels map[string]string
+	}{
+		{
+			labels1:      map[string]string{},
+			labels2:      map[string]string{},
+			mergedLabels: map[string]string{},
+		},
+		{
+			labels1:      map[string]string{"infra": "true"},
+			labels2:      map[string]string{},
+			mergedLabels: map[string]string{"infra": "true"},
+		},
+		{
+			labels1:      map[string]string{"infra": "true"},
+			labels2:      map[string]string{"env": "test", "color": "blue"},
+			mergedLabels: map[string]string{"infra": "true", "env": "test", "color": "blue"},
+		},
+	}
+	for _, test := range tests {
+		mergedLabels := Merge(test.labels1, test.labels2)
+		if !Equals(mergedLabels, test.mergedLabels) {
+			t.Errorf("expected: %v but got: %v", test.mergedLabels, mergedLabels)
+		}
+	}
+}

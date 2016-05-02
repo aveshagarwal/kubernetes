@@ -1,6 +1,7 @@
 package nodeenv
 
 import (
+	"fmt"
 	"testing"
 
 	"k8s.io/kubernetes/pkg/admission"
@@ -125,4 +126,66 @@ func TestHandles(t *testing.T) {
 			t.Errorf("%v: shouldHandle=%t, handles=%t", op, e, a)
 		}
 	}
+}
+
+// TestPodAdmissionNamespaceCache verifies various scenarios involving pod/namespace/global node label selectors
+func TestPodAdmissionwithNamespaceCache(t *testing.T) {
+	mockClientset := clientsetfake.NewSimpleClientset()
+	handler := &podNodeEnvironment{client: mockClientset, nsCache: TestNSCache{}}
+	pod := &api.Pod{
+		ObjectMeta: api.ObjectMeta{Name: "testPod"},
+	}
+
+	tests := []struct {
+		podNodeSelector    map[string]string
+		mergedNodeSelector map[string]string
+		admit              bool
+		testName           string
+	}{
+		{
+			podNodeSelector:    map[string]string{},
+			mergedNodeSelector: map[string]string{"infra": "false"},
+			admit:              true,
+			testName:           "Default node selector and no conflicts",
+		},
+		{
+			podNodeSelector:    map[string]string{},
+			mergedNodeSelector: map[string]string{"infra": "false"},
+			admit:              true,
+			testName:           "TestNamespace node selector and no conflicts",
+		},
+	}
+	for _, test := range tests {
+
+		pod.Spec = api.PodSpec{NodeSelector: test.podNodeSelector}
+
+		err := handler.Admit(admission.NewAttributesRecord(pod, api.Kind("Pod").WithVersion("version"), "testNamespace", "testNamespace", api.Resource("pods").WithVersion("version"), "", admission.Create, nil))
+		if test.admit && err != nil {
+			t.Errorf("Test: %s, expected no error but got: %s", test.testName, err)
+		} else if !test.admit && err == nil {
+			t.Errorf("Test: %s, expected an error", test.testName)
+		}
+
+		if !labels.Equals(test.mergedNodeSelector, pod.Spec.NodeSelector) {
+			t.Errorf("Test: %s, expected: %s but got: %s", test.testName, test.mergedNodeSelector, pod.Spec.NodeSelector)
+		}
+	}
+}
+
+type TestNSCache struct{}
+
+func (ns TestNSCache) GetNamespace(name string) (*api.Namespace, error) {
+	namespace := &api.Namespace{
+		ObjectMeta: api.ObjectMeta{
+			Name:      "testNamespace",
+			Namespace: "",
+			Annotations: map[string]string{
+				"kubernetes.io/node-selector": "infra=false",
+			},
+		},
+	}
+	if name != "testNamespace" {
+		return nil, fmt.Errorf("namespace %s is not available in cache", name)
+	}
+	return namespace, nil
 }
