@@ -850,6 +850,8 @@ func Conflicts(labels1, labels2 map[string]string) bool {
 
 // Merge combines given maps
 // Note: It doesn't not check for any conflicts between the maps
+// In case of conflicts, second map (labels2) wins, so it is
+// recommended to call Conflicts before calling Merge
 func Merge(labels1, labels2 map[string]string) map[string]string {
 	mergedMap := map[string]string{}
 
@@ -880,8 +882,9 @@ func Equals(labels1, labels2 map[string]string) bool {
 	return true
 }
 
-// Converts selector string to labels map and validates keys and values
-func ConvertSelectortoLabelsMap(selector string) (map[string]string, error) {
+// ConvertSelectorToLabelsMap converts selector string to labels map
+// and validates keys and values
+func ConvertSelectorToLabelsMap(selector string) (map[string]string, error) {
 	labelsMap := map[string]string{}
 
 	if len(selector) != 0 {
