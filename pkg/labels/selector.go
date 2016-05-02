@@ -850,8 +850,7 @@ func Conflicts(labels1, labels2 map[string]string) bool {
 
 // Merge combines given maps
 // Note: It does not check for any conflicts between the maps
-// In case of conflicts, second map (labels2) wins, so it is
-// recommended to call Conflicts before Merge
+// In case of conflicts, second map (labels2) wins
 func Merge(labels1, labels2 map[string]string) map[string]string {
 	mergedMap := map[string]string{}
 
