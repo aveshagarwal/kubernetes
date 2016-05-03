@@ -666,7 +666,17 @@ func TestLabelSelectorParse(t *testing.T) {
 			valid:    true,
 		},
 		{
+			selector: " x = a , y = b , z = c ",
+			labels:   map[string]string{"x": "a", "y": "b", "z": "c"},
+			valid:    true,
+		},
+		{
 			selector: "color=green,env=test,service=front",
+			labels:   map[string]string{"color": "green", "env": "test", "service": "front"},
+			valid:    true,
+		},
+		{
+			selector: "color=green, env=test, service=front",
 			labels:   map[string]string{"color": "green", "env": "test", "service": "front"},
 			valid:    true,
 		},

@@ -48,6 +48,13 @@ func TestPodAdmission(t *testing.T) {
 			testName:              "Default node selector and no conflicts",
 		},
 		{
+			namespaceNodeSelector: " infra = false ",
+			podNodeSelector:       map[string]string{},
+			mergedNodeSelector:    map[string]string{"infra": "false"},
+			admit:                 true,
+			testName:              "TestNamespace node selector with whitespaces and no conflicts",
+		},
+		{
 			namespaceNodeSelector: "infra=false",
 			podNodeSelector:       map[string]string{},
 			mergedNodeSelector:    map[string]string{"infra": "false"},

@@ -891,13 +891,15 @@ func ConvertSelectorToLabelsMap(selector string) (map[string]string, error) {
 		for _, label := range labels {
 			l := strings.Split(label, "=")
 			if len(l) == 2 {
-				if err := validateLabelKey(l[0]); err != nil {
+				key := strings.TrimSpace(l[0])
+				if err := validateLabelKey(key); err != nil {
 					return labelsMap, err
 				}
-				if err := validateLabelValue(l[1]); err != nil {
+				value := strings.TrimSpace(l[1])
+				if err := validateLabelValue(value); err != nil {
 					return labelsMap, err
 				}
-				labelsMap[l[0]] = l[1]
+				labelsMap[key] = value
 			} else {
 				return labelsMap, fmt.Errorf("invalid selector: %s", l)
 			}
