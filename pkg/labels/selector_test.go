@@ -643,3 +643,94 @@ func TestLabelMerge(t *testing.T) {
 		}
 	}
 }
+
+func TestLabelSelectorParse(t *testing.T) {
+	tests := []struct {
+		selector string
+		labels   map[string]string
+		valid    bool
+	}{
+		{
+			selector: "",
+			labels:   map[string]string{},
+			valid:    true,
+		},
+		{
+			selector: "x=a",
+			labels:   map[string]string{"x": "a"},
+			valid:    true,
+		},
+		{
+			selector: "x=a,y=b,z=c",
+			labels:   map[string]string{"x": "a", "y": "b", "z": "c"},
+			valid:    true,
+		},
+		{
+			selector: "color=green,env=test,service=front",
+			labels:   map[string]string{"color": "green", "env": "test", "service": "front"},
+			valid:    true,
+		},
+		{
+			selector: ",",
+			labels:   map[string]string{},
+			valid:    false,
+		},
+		{
+			selector: "x",
+			labels:   map[string]string{},
+			valid:    false,
+		},
+		{
+			selector: "x,y",
+			labels:   map[string]string{},
+			valid:    false,
+		},
+		{
+			selector: "x=$y",
+			labels:   map[string]string{},
+			valid:    false,
+		},
+		{
+			selector: "x!=y",
+			labels:   map[string]string{},
+			valid:    false,
+		},
+		{
+			selector: "x==y",
+			labels:   map[string]string{},
+			valid:    false,
+		},
+		{
+			selector: "x=a||y=b",
+			labels:   map[string]string{},
+			valid:    false,
+		},
+		{
+			selector: "x in (y)",
+			labels:   map[string]string{},
+			valid:    false,
+		},
+		{
+			selector: "x notin (y)",
+			labels:   map[string]string{},
+			valid:    false,
+		},
+		{
+			selector: "x y",
+			labels:   map[string]string{},
+			valid:    false,
+		},
+	}
+	for _, test := range tests {
+		labels, err := ConvertSelectorToLabelsMap(test.selector)
+		if test.valid && err != nil {
+			t.Errorf("selector: %s, expected no error but got: %s", test.selector, err)
+		} else if !test.valid && err == nil {
+			t.Errorf("selector: %s, expected an error", test.selector)
+		}
+
+		if !Equals(labels, test.labels) {
+			t.Errorf("expected: %s but got: %s", test.labels, labels)
+		}
+	}
+}
