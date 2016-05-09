@@ -4,29 +4,34 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/golang/glog"
+
 	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
+	"k8s.io/kubernetes/pkg/client/cache"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/labels"
+	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/watch"
 )
 
 func init() {
 	admission.RegisterPlugin("PodNodeEnvironment", func(client clientset.Interface, config io.Reader) (admission.Interface, error) {
-		return NewPodNodeEnvironment(client, nil)
+		return NewPodNodeEnvironment(client, "")
 	})
 }
 
 const (
 	NamespaceNodeSelector = "kubernetes.io/node-selector"
-	DefaultNodeSelector   = ""
 )
 
 // podNodeEnvironment is an implementation of admission.Interface.
 type podNodeEnvironment struct {
 	*admission.Handler
-	client  clientset.Interface
-	nsCache NamespaceCache
+	client              clientset.Interface
+	store               cache.Store
+	defaultNodeSelector string
 }
 
 // Admit enforces that pod and its namespace node label selectors matches at least a node in the cluster.
@@ -43,29 +48,37 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 	obj := a.GetObject()
 	pod, ok := obj.(*api.Pod)
 	if !ok {
+		glog.Warning("expected pod but got something else")
 		return nil
 	}
 
 	name := pod.Name
 	nsName := a.GetNamespace()
-
 	var namespace *api.Namespace
-	var err error
-	if p.nsCache != nil {
-		namespace, err = p.nsCache.GetNamespace(nsName)
+
+	namespaceObj, exists, err := p.store.Get(&api.Namespace{
+		ObjectMeta: api.ObjectMeta{
+			Name:      nsName,
+			Namespace: "",
+		},
+	})
+	if err != nil {
+		return errors.NewInternalError(err)
+	}
+
+	if exists {
+		namespace = namespaceObj.(*api.Namespace)
+	} else {
+		namespace, err = p.defaultGetNamespace(nsName)
 		if err != nil {
-			return err
+			if errors.IsNotFound(err) {
+				return err
+			}
+			return errors.NewInternalError(err)
 		}
 	}
 
-	if namespace == nil {
-		namespace, err = p.DefaultGetNamespace(nsName)
-		if err != nil {
-			return err
-		}
-	}
-
-	namespaceNodeSelector, err := GetNodeSelectorMap(namespace)
+	namespaceNodeSelector, err := p.getNodeSelectorMap(namespace)
 	if err != nil {
 		return err
 	}
@@ -80,15 +93,31 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 	return nil
 }
 
-func NewPodNodeEnvironment(client clientset.Interface, nsCache NamespaceCache) (admission.Interface, error) {
+func NewPodNodeEnvironment(client clientset.Interface, defaultNodeSelector string) (admission.Interface, error) {
+	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
+	reflector := cache.NewReflector(
+		&cache.ListWatch{
+			ListFunc: func(options api.ListOptions) (runtime.Object, error) {
+				return client.Core().Namespaces().List(options)
+			},
+			WatchFunc: func(options api.ListOptions) (watch.Interface, error) {
+				return client.Core().Namespaces().Watch(options)
+			},
+		},
+		&api.Namespace{},
+		store,
+		0,
+	)
+	reflector.Run()
 	return &podNodeEnvironment{
-		Handler: admission.NewHandler(admission.Create),
-		client:  client,
-		nsCache: nsCache,
+		Handler:             admission.NewHandler(admission.Create),
+		client:              client,
+		store:               store,
+		defaultNodeSelector: defaultNodeSelector,
 	}, nil
 }
 
-func (p *podNodeEnvironment) DefaultGetNamespace(name string) (*api.Namespace, error) {
+func (p *podNodeEnvironment) defaultGetNamespace(name string) (*api.Namespace, error) {
 	namespace, err := p.client.Core().Namespaces().Get(name)
 	if err != nil {
 		return nil, fmt.Errorf("namespace %s does not exist", name)
@@ -96,7 +125,7 @@ func (p *podNodeEnvironment) DefaultGetNamespace(name string) (*api.Namespace, e
 	return namespace, nil
 }
 
-func GetNodeSelectorMap(namespace *api.Namespace) (map[string]string, error) {
+func (p *podNodeEnvironment) getNodeSelectorMap(namespace *api.Namespace) (map[string]string, error) {
 	selector := ""
 	found := false
 	if len(namespace.ObjectMeta.Annotations) > 0 {
@@ -106,7 +135,7 @@ func GetNodeSelectorMap(namespace *api.Namespace) (map[string]string, error) {
 		}
 	}
 	if !found {
-		selector = DefaultNodeSelector
+		selector = p.defaultNodeSelector
 	}
 
 	labelsMap, err := labels.ConvertSelectorToLabelsMap(selector)

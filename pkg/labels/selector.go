@@ -834,23 +834,29 @@ func ParseToRequirements(selector string) ([]Requirement, error) {
 	return parse(selector)
 }
 
-// Conflicts takes 2 maps
-// returns true if there a key match between the maps but the value doesn't match
-// returns false in other cases
+// Conflicts takes 2 maps and returns true if there a key match between
+// the maps but the value doesn't match, and returns false in other cases
 func Conflicts(labels1, labels2 map[string]string) bool {
-	for k, v := range labels1 {
-		if val, match := labels2[k]; match {
+	small := labels1
+	big := labels2
+	if len(labels2) < len(labels1) {
+		small = labels2
+		big = labels1
+	}
+
+	for k, v := range small {
+		if val, match := big[k]; match {
 			if val != v {
 				return true
 			}
 		}
 	}
+
 	return false
 }
 
-// Merge combines given maps
-// Note: It does not check for any conflicts between the maps
-// In case of conflicts, second map (labels2) wins
+// Merge combines given maps, and does not check for any conflicts
+// between the maps. In case of conflicts, second map (labels2) wins
 func Merge(labels1, labels2 map[string]string) map[string]string {
 	mergedMap := map[string]string{}
 

@@ -1,11 +1,11 @@
 package nodeenv
 
 import (
-	"fmt"
 	"testing"
 
 	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/client/cache"
 	clientsetfake "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/fake"
 	"k8s.io/kubernetes/pkg/labels"
 )
@@ -19,13 +19,16 @@ func TestPodAdmission(t *testing.T) {
 		},
 	}
 
-	mockClientset := clientsetfake.NewSimpleClientset(namespace)
-	handler := &podNodeEnvironment{client: mockClientset}
+	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
+	store.Add(namespace)
+	mockClientset := clientsetfake.NewSimpleClientset()
+	handler := &podNodeEnvironment{client: mockClientset, store: store}
 	pod := &api.Pod{
-		ObjectMeta: api.ObjectMeta{Name: "testPod"},
+		ObjectMeta: api.ObjectMeta{Name: "testPod", Namespace: "testNamespace"},
 	}
 
 	tests := []struct {
+		defaultNodeSelector             string
 		namespaceNodeSelector           string
 		podNodeSelector                 map[string]string
 		mergedNodeSelector              map[string]string
@@ -34,6 +37,7 @@ func TestPodAdmission(t *testing.T) {
 		testName                        string
 	}{
 		{
+			defaultNodeSelector:             "",
 			podNodeSelector:                 map[string]string{},
 			mergedNodeSelector:              map[string]string{},
 			ignoreTestNamespaceNodeSelector: true,
@@ -41,13 +45,15 @@ func TestPodAdmission(t *testing.T) {
 			testName: "No node selectors",
 		},
 		{
-			namespaceNodeSelector: "infra=false",
-			podNodeSelector:       map[string]string{},
-			mergedNodeSelector:    map[string]string{"infra": "false"},
-			admit:                 true,
-			testName:              "Default node selector and no conflicts",
+			defaultNodeSelector:             "infra = false",
+			podNodeSelector:                 map[string]string{},
+			mergedNodeSelector:              map[string]string{"infra": "false"},
+			ignoreTestNamespaceNodeSelector: true,
+			admit:    true,
+			testName: "Default node selector and no conflicts",
 		},
 		{
+			defaultNodeSelector:   "",
 			namespaceNodeSelector: " infra = false ",
 			podNodeSelector:       map[string]string{},
 			mergedNodeSelector:    map[string]string{"infra": "false"},
@@ -55,13 +61,7 @@ func TestPodAdmission(t *testing.T) {
 			testName:              "TestNamespace node selector with whitespaces and no conflicts",
 		},
 		{
-			namespaceNodeSelector: "infra=false",
-			podNodeSelector:       map[string]string{},
-			mergedNodeSelector:    map[string]string{"infra": "false"},
-			admit:                 true,
-			testName:              "TestNamespace node selector and no conflicts",
-		},
-		{
+			defaultNodeSelector:   "infra = false",
 			namespaceNodeSelector: "",
 			podNodeSelector:       map[string]string{},
 			mergedNodeSelector:    map[string]string{},
@@ -69,6 +69,7 @@ func TestPodAdmission(t *testing.T) {
 			testName:              "Empty namespace node selector and no conflicts",
 		},
 		{
+			defaultNodeSelector:   "infra = false",
 			namespaceNodeSelector: "infra=true",
 			podNodeSelector:       map[string]string{},
 			mergedNodeSelector:    map[string]string{"infra": "true"},
@@ -76,6 +77,7 @@ func TestPodAdmission(t *testing.T) {
 			testName:              "Default and namespace node selector, no conflicts",
 		},
 		{
+			defaultNodeSelector:   "infra = false",
 			namespaceNodeSelector: "infra=true",
 			podNodeSelector:       map[string]string{"env": "test"},
 			mergedNodeSelector:    map[string]string{"infra": "true", "env": "test"},
@@ -83,16 +85,16 @@ func TestPodAdmission(t *testing.T) {
 			testName:              "TestNamespace and pod node selector, no conflicts",
 		},
 		{
+			defaultNodeSelector:   "env = test",
 			namespaceNodeSelector: "infra=true",
 			podNodeSelector:       map[string]string{"infra": "false"},
-			mergedNodeSelector:    map[string]string{"infra": "false"},
 			admit:                 false,
 			testName:              "Conflicting pod and namespace node selector, one label",
 		},
 		{
+			defaultNodeSelector:   "env=dev",
 			namespaceNodeSelector: "infra=false, env = test",
 			podNodeSelector:       map[string]string{"env": "dev", "color": "blue"},
-			mergedNodeSelector:    map[string]string{"env": "dev", "color": "blue"},
 			admit:                 false,
 			testName:              "Conflicting pod and namespace node selector, multiple labels",
 		},
@@ -101,6 +103,8 @@ func TestPodAdmission(t *testing.T) {
 		if !test.ignoreTestNamespaceNodeSelector {
 			namespace.ObjectMeta.Annotations = map[string]string{"kubernetes.io/node-selector": test.namespaceNodeSelector}
 		}
+		handler.store.Update(namespace)
+		handler.defaultNodeSelector = test.defaultNodeSelector
 		pod.Spec = api.PodSpec{NodeSelector: test.podNodeSelector}
 
 		err := handler.Admit(admission.NewAttributesRecord(pod, api.Kind("Pod").WithVersion("version"), "testNamespace", namespace.ObjectMeta.Name, api.Resource("pods").WithVersion("version"), "", admission.Create, nil))
@@ -110,7 +114,7 @@ func TestPodAdmission(t *testing.T) {
 			t.Errorf("Test: %s, expected an error", test.testName)
 		}
 
-		if !labels.Equals(test.mergedNodeSelector, pod.Spec.NodeSelector) {
+		if test.admit && !labels.Equals(test.mergedNodeSelector, pod.Spec.NodeSelector) {
 			t.Errorf("Test: %s, expected: %s but got: %s", test.testName, test.mergedNodeSelector, pod.Spec.NodeSelector)
 		}
 	}
@@ -123,7 +127,7 @@ func TestHandles(t *testing.T) {
 		admission.Connect: false,
 		admission.Delete:  false,
 	} {
-		nodeEnvionment, err := NewPodNodeEnvironment(nil, nil)
+		nodeEnvionment, err := NewPodNodeEnvironment(nil, "")
 		if err != nil {
 			t.Errorf("%v: error getting node environment: %v", op, err)
 			continue
@@ -133,66 +137,4 @@ func TestHandles(t *testing.T) {
 			t.Errorf("%v: shouldHandle=%t, handles=%t", op, e, a)
 		}
 	}
-}
-
-// TestPodAdmissionNamespaceCache verifies various scenarios involving pod/namespace/global node label selectors
-func TestPodAdmissionwithNamespaceCache(t *testing.T) {
-	mockClientset := clientsetfake.NewSimpleClientset()
-	handler := &podNodeEnvironment{client: mockClientset, nsCache: TestNSCache{}}
-	pod := &api.Pod{
-		ObjectMeta: api.ObjectMeta{Name: "testPod"},
-	}
-
-	tests := []struct {
-		podNodeSelector    map[string]string
-		mergedNodeSelector map[string]string
-		admit              bool
-		testName           string
-	}{
-		{
-			podNodeSelector:    map[string]string{},
-			mergedNodeSelector: map[string]string{"infra": "false"},
-			admit:              true,
-			testName:           "Default node selector and no conflicts",
-		},
-		{
-			podNodeSelector:    map[string]string{},
-			mergedNodeSelector: map[string]string{"infra": "false"},
-			admit:              true,
-			testName:           "TestNamespace node selector and no conflicts",
-		},
-	}
-	for _, test := range tests {
-
-		pod.Spec = api.PodSpec{NodeSelector: test.podNodeSelector}
-
-		err := handler.Admit(admission.NewAttributesRecord(pod, api.Kind("Pod").WithVersion("version"), "testNamespace", "testNamespace", api.Resource("pods").WithVersion("version"), "", admission.Create, nil))
-		if test.admit && err != nil {
-			t.Errorf("Test: %s, expected no error but got: %s", test.testName, err)
-		} else if !test.admit && err == nil {
-			t.Errorf("Test: %s, expected an error", test.testName)
-		}
-
-		if !labels.Equals(test.mergedNodeSelector, pod.Spec.NodeSelector) {
-			t.Errorf("Test: %s, expected: %s but got: %s", test.testName, test.mergedNodeSelector, pod.Spec.NodeSelector)
-		}
-	}
-}
-
-type TestNSCache struct{}
-
-func (ns TestNSCache) GetNamespace(name string) (*api.Namespace, error) {
-	namespace := &api.Namespace{
-		ObjectMeta: api.ObjectMeta{
-			Name:      "testNamespace",
-			Namespace: "",
-			Annotations: map[string]string{
-				"kubernetes.io/node-selector": "infra=false",
-			},
-		},
-	}
-	if name != "testNamespace" {
-		return nil, fmt.Errorf("namespace %s is not available in cache", name)
-	}
-	return namespace, nil
 }
