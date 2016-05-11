@@ -15,8 +15,8 @@
 
 <h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
 
-If you are using a released version of Kubernetes, you should refer to
-the docs that go with that version.
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
 
 Documentation for other releases can be found at
 [releases.k8s.io](http://releases.k8s.io).
@@ -171,6 +171,7 @@ type ObjectFieldSelector struct {
 ```
 
 #### Examples
+
 These examples show how to use full selectors with environment variables and volume plugin.
 
 ```
@@ -279,6 +280,7 @@ type EnvVarSource struct {
 ```
 
 #### Environment variables
+
 This table shows how partial selectors can be used for various requests and
 limits to be exposed as environment variables. Environment variable names
 are examples only and not necessarily as specified, and the selectors do not
@@ -298,6 +300,7 @@ it defaults to current container. However, container name could be specified
 to expose variables from other containers.
 
 #### Volume plugin
+
 This table shows volume paths and partial selectors used for resources cpu and memory.
 Volume path names are examples only and not necessarily as specified, and the
 selectors do not have to start with dot.
@@ -313,6 +316,7 @@ Since environment variables are container scoped, the container name must
 be specified as part of the `containerSpecFieldRef` with volumes.
 
 #### Examples
+
 These examples show how to use partial selectors with environment variables and volume plugin.
 
 ```
@@ -367,6 +371,7 @@ spec:
               containerName: "client-container"
               fieldPath: resources.limits.cpu
 ```
+
 #### Validations
 
 For APIs with partial json path selectors, verify
@@ -421,6 +426,7 @@ type EnvVarSource struct {
 ```
 
 #### Environment variables
+
 This table shows environment variable names and strings used for resources cpu and memory.
 The variable names are examples only and not necessarily as specified.
 
@@ -438,6 +444,7 @@ it defaults to current container. However, container name could be specified
 to expose variables from other containers.
 
 #### Volume plugin
+
 This table shows volume paths and strings used for resources cpu and memory.
 Volume path names are examples only and not necessarily as specified.
 
@@ -452,6 +459,7 @@ Since environment variables are container scoped, the container name must
 be specified.
 
 #### Examples
+
 These examples show how to use magic keys approach with environment variables and volume plugin.
 
 ```
@@ -516,6 +524,7 @@ of `limits.cpu`, `limits.memory`, `requests.cpu` and `requests.memory`.
 Also verify that container name is provided with volumes.
 
 ## Pod and container level resource access
+
 Pod level resources (like `metadata.name`, `status.podIP`) will always be accessed with `type ObjectFieldSelector` object in
 all approaches. Container level resources will be accessed by `type ObjectFieldSelector`
 with full selector approach; and by `type ContainerFieldRef` and `type ResourceFieldRef`
