@@ -63,7 +63,7 @@ which are relative to the container spec. This approach helps
 in retrieving a container specific resource limits and requests, and at
 the same time, it is simpler to specify than full json path selectors.
 
-3. In this approach, users specify fixed strings to retrieve
+3. In the third approach, users specify fixed strings (magic keys) to retrieve
 resources limits and requests and do not specify any json path
 selectors. This approach is similar to the existing downward API
 implementation approach. The advantages of this approach are that it is
@@ -106,9 +106,9 @@ unless there is another way without requiring the versioned object.
 
 So there is a one time conversion cost associated with the first (full
 path) and second (partial path) approaches, whereas the third approach
-(no selectors) does not require any such conversion and can directly
+(magic keys) does not require any such conversion and can directly
 work on internal objects. If we want to avoid conversion cost and to
-have implementation simplicity, my opinion is that no selector approach
+have implementation simplicity, my opinion is that magic keys approach
 is relatively easiest to implement to expose limits and requests with
 least impact on existing functionality.
 
@@ -118,9 +118,9 @@ To summarize merits/demerits of each approach:
 | ---------- | ------------------- | -------------------| ------------------- | ------------------- |
 |Full selectors | Pod/Container | Yes | Yes | Possible |
 |Partial selectors | Container | Yes | Yes | Possible |
-|No selectors | Container | No | No | Possible|
+|Magic keys | Container | No | No | Possible|
 
-Note: Please note that pod resources can always be accessed using existing `type ObjectFieldSelector` object in conjunction with partial selectors and no selectors approaches.
+Note: Please note that pod resources can always be accessed using existing `type ObjectFieldSelector` object in conjunction with partial selectors and magic keys approaches.
 
 ### API with full JSONpath selectors
 
@@ -237,7 +237,7 @@ valid relative to pod spec.
 
 Partial json path selectors specify paths to resources limits and requests
 relative to the container spec. These will be implemented by introducing a
-`ContainerFieldSelector` (json: `containerFieldRef`) to extend the current
+`ContainerFieldSelector` (json: `containerSpecFieldRef`) to extend the current
 implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource struct`.
 
 ```
@@ -258,8 +258,9 @@ type DownwardAPIVolumeFile struct {
      // namespace are supported.
      FieldRef *ObjectFieldSelector `json:"fieldRef, omitempty"`
      // Selects a field of the container: only resources limits and requests
-     // (cpu, memory) are currently supported.
-     ContainerFieldRef *ContainerFieldSelector `json:"containerFieldRef,omitempty"`
+     // (resources.limits.cpu, resources.limits.memory, resources.requests.cpu,
+     // resources.requests.memory) are currently supported.
+     ContainerFieldRef *ContainerFieldSelector `json:"containerSpecFieldRef,omitempty"`
 }
 
 // EnvVarSource represents a source for the value of an EnvVar.
@@ -267,7 +268,7 @@ type DownwardAPIVolumeFile struct {
 type EnvVarSource struct {
    // Required: Selects a field of the container: only resources limits and
    // requests (cpu, memory) are supported.
-   ContainerFieldRef *ContainerFieldSelector `json:"containerFieldRef,omitempty"`
+   ContainerFieldRef *ContainerFieldSelector `json:"containerSpecFieldRef,omitempty"`
    // Selects a field of the pod; only name and namespace are supported.
    FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
    // Selects a key of a ConfigMap.
@@ -309,7 +310,7 @@ selectors do not have to start with dot.
 | memory_request | resources.requests.memory |
 
 Since environment variables are container scoped, the container name must
-be specified as part of the `containerFieldRef` with volumes.
+be specified as part of the `containerSpecFieldRef` with volumes.
 
 #### Examples
 These examples show how to use partial selectors with environment variables and volume plugin.
@@ -333,7 +334,7 @@ spec:
       env:
         - name: CPU_LIMIT
           valueFrom:
-            containerFieldRef:
+            containerSpecFieldRef:
               fieldPath: resources.limits.cpu
 ```
 
@@ -362,7 +363,7 @@ spec:
       downwardAPI:
         items:
           - path: "cpu_limit"
-            containerFieldRef:
+            containerSpecFieldRef:
               containerName: "client-container"
               fieldPath: resources.limits.cpu
 ```
@@ -373,13 +374,13 @@ that selectors are valid relative to container spec.
 Also verify that container name is provided with volumes.
 
 
-### API with no selectors
+### API with magic keys
 
 In this approach, users specify fixed strings (or magic keys) to retrieve resources
 limits and requests. This approach is similar to the existing downward
 API implementation approach. The fixed string used for resources limits and requests
-for cpu and memory are `resources.limits.cpu`, `resources.limits.memory`,
-`resources.requests.cpu` and `resources.requests.memory`. Though these strings are same
+for cpu and memory are `limits.cpu`, `limits.memory`,
+`requests.cpu` and `requests.memory`. Though these strings are same
 as json path selectors but are processed as fixed strings. These will be implemented by
 introducing a `ResourceFieldSelector` (json: `resourceFieldRef`) to extend the current
 implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource struct`:
@@ -400,7 +401,7 @@ type DownwardAPIVolumeFile struct {
      // namespace are supported.
      FieldRef *ObjectFieldSelector `json:"fieldRef, omitempty"`
      // Selects a resource of the container: only resources limits and requests
-     // (cpu, memory) are currently supported.
+     // (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.
      ResourceFieldRef *ResourceFieldSelector `json:"resourceFieldRef,omitempty"`
 }
 
@@ -425,10 +426,10 @@ The variable names are examples only and not necessarily as specified.
 
 | Env Var Name | Resource |
 | -------------------- | -------------------|
-| CPU_LIMIT | resources.limits.cpu |
-| MEMORY_LIMIT | resources.limits.memory |
-| CPU_REQUEST | resources.requests.cpu |
-| MEMORY_REQUEST | resources.requests.memory |
+| CPU_LIMIT | limits.cpu |
+| MEMORY_LIMIT | limits.memory |
+| CPU_REQUEST | requests.cpu |
+| MEMORY_REQUEST | requests.memory |
 
 Since environment variables are container scoped, it is optional
 to specify container name as part of the partial selectors as they are
@@ -442,16 +443,16 @@ Volume path names are examples only and not necessarily as specified.
 
 | Path | Resource |
 | -------------------- | -------------------|
-| cpu_limit | resources.limits.cpu |
-| memory_limit | resources.limits.memory|
-| cpu_request | resources.requests.cpu |
-| memory_request | resources.requests.memory |
+| cpu_limit | limits.cpu |
+| memory_limit | limits.memory|
+| cpu_request | requests.cpu |
+| memory_request | requests.memory |
 
 Since environment variables are container scoped, the container name must
 be specified.
 
 #### Examples
-These examples show how to use no selectors approach with environment variables and volume plugin.
+These examples show how to use magic keys approach with environment variables and volume plugin.
 
 ```
 apiVersion: v1
@@ -474,7 +475,7 @@ spec:
         - name: CPU_LIMIT
           valueFrom:
             resourceFieldRef:
-              resource: resources.limits.cpu
+              resource: limits.cpu
 ```
 
 ```
@@ -505,27 +506,27 @@ spec:
           - path: "cpu_limit"
             resourceFieldRef:
               containerName: client-container
-              resource: resources.limits.cpu
+              resource: limits.cpu
 ```
 
 #### Validations
 
-For APIs with no selectors, verify that the resource strings are valid and is one
-of `resources.limits.cpu`, `resources.limits.memory`, `resources.requests.cpu` and `resources.requests.memory`.
+For APIs with magic keys, verify that the resource strings are valid and is one
+of `limits.cpu`, `limits.memory`, `requests.cpu` and `requests.memory`.
 Also verify that container name is provided with volumes.
 
 ## Pod and container level resource access
 Pod level resources (like `metadata.name`, `status.podIP`) will always be accessed with `type ObjectFieldSelector` object in
 all approaches. Container level resources will be accessed by `type ObjectFieldSelector`
 with full selector approach; and by `type ContainerFieldRef` and `type ResourceFieldRef`
-with partial and no selectors approaches, respectively. The following table
+with partial and magic keys approaches, respectively. The following table
 summarizes resource access with these approaches.
 
 | Approach | Pod resources| Container resources |
 | -------------------- | -------------------|-------------------|
 | Full selectors | `ObjectFieldSelector` | `ObjectFieldSelector`|
 | Partial selectors | `ObjectFieldSelector`| `ContainerFieldRef` |
-| No selectors | `ObjectFieldSelector`| `ResourceFieldRef` |
+| Magic keys | `ObjectFieldSelector`| `ResourceFieldRef` |
 
 ## Output Format
 
