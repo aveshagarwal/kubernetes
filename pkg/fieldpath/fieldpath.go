@@ -69,6 +69,7 @@ func ExtractFieldPathAsString(obj interface{}, fieldPath string) (string, error)
 
 var jsonRegexp = regexp.MustCompile("^\\{\\.?([^{}]+)\\}$|^\\.?([^{}]+)$")
 
+// extractJSONFieldSelectorValue validates and returns the value of a field of an object
 func extractJSONFieldSelectorValue(obj interface{}, fieldPath string) (string, error) {
 	parser := jsonpath.New("downward APIs")
 	tmpFieldPath, err := jsonpath.MassageJSONPath(fieldPath, jsonRegexp)
@@ -91,23 +92,14 @@ func extractJSONFieldSelectorValue(obj interface{}, fieldPath string) (string, e
 	return fmt.Sprintf("%s", values[0][0]), nil
 }
 
-// Avesh todo: create a function for common pod copy and conversion code and perhaps another place
-func ExtractJSONFieldSelectorValueForPod(fs *api.ObjectFieldSelector, internalPod *api.Pod) (string, error) {
-	versionedPod, err := CloneAndConvertInternalPodToVersioned(internalPod, fs.APIVersion)
-	if err != nil {
-		return "", err
-	}
-	return extractJSONFieldSelectorValue(versionedPod, fs.FieldPath)
-
-}
-
-func ExtractJSONFieldSelectorValueForContainer(fs *api.ObjectFieldSelector, internalPod *api.Pod, containerName string) (string, error) {
-	versionedPod, err := CloneAndConvertInternalPodToVersioned(internalPod, fs.APIVersion)
+// ExtractJSONFieldSelectorValueForContainer returns the values of a field in a container
+func ExtractJSONFieldSelectorValueForContainer(fs *api.ContainerFieldSelector, internalPod *api.Pod, containerName string) (string, error) {
+	versionedPod, err := cloneAndConvertInternalPodToVersioned(internalPod, fs.APIVersion)
 	if err != nil {
 		return "", err
 	}
 
-	versionedContainer, err := FindContainerInPod(versionedPod, containerName, fs.APIVersion)
+	versionedContainer, err := findContainerInPod(versionedPod, containerName, fs.APIVersion)
 	if err != nil {
 		return "", err
 	}
@@ -115,8 +107,8 @@ func ExtractJSONFieldSelectorValueForContainer(fs *api.ObjectFieldSelector, inte
 	return extractJSONFieldSelectorValue(versionedContainer, fs.FieldPath)
 }
 
-// Avesh todo: perhaps move to another place?
-func CloneAndConvertInternalPodToVersioned(internalPod *api.Pod, version string) (runtime.Object, error) {
+// cloneAndConvertInternalPodToVersioned makes a copy of the provided pod and converts it to versioned pod
+func cloneAndConvertInternalPodToVersioned(internalPod *api.Pod, version string) (runtime.Object, error) {
 	obj, err := api.Scheme.Copy(internalPod)
 	if err != nil {
 		glog.Errorf("unable to copy pod: %v", err)
@@ -126,8 +118,8 @@ func CloneAndConvertInternalPodToVersioned(internalPod *api.Pod, version string)
 	return api.Scheme.ConvertToVersion(obj.(*api.Pod), version)
 }
 
-// Avesh todo: perhaps move to another place?
-func FindContainerInPod(versionedObj runtime.Object, containerName string, version string) (interface{}, error) {
+// findContainerInPod finds a container with containerName in the provided versioned pod
+func findContainerInPod(versionedObj runtime.Object, containerName string, version string) (interface{}, error) {
 	switch version {
 	case "v1":
 		versionedPod := versionedObj.(*v1.Pod)
@@ -136,7 +128,7 @@ func FindContainerInPod(versionedObj runtime.Object, containerName string, versi
 				return &container, nil
 			}
 		}
-		return nil, fmt.Errorf("container %s not found", containerName)
+		return nil, fmt.Errorf("container %s is not found", containerName)
 	default:
 		return nil, fmt.Errorf("version %s is not supported", version)
 	}
