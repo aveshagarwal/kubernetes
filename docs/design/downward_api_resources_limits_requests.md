@@ -45,6 +45,12 @@ these applications to be configured more easily. Although docker already
 exposes some of this information inside containers, the downward API helps
 exposing this information in a runtime-agnostic manner in Kubernetes.
 
+## Use cases
+
+As an application author, I want to be able to use cpu or memory requests and
+limits to configure the operational requirements of my applications inside containers.
+For example, Java based applications can configure and adjust their heap size.
+
 ## Design
 
 This is mostly driven by the discussion in [this issue](https://github.com/kubernetes/kubernetes/issues/9473).
@@ -540,7 +546,7 @@ summarizes resource access with these approaches.
 | Partial selectors | `ObjectFieldSelector`| `ContainerSpecFieldRef` |
 | Magic keys | `ObjectFieldSelector`| `ResourceFieldRef` |
 
-## Output Format
+## Output format
 
 The output format for resources limits and requests will be same as
 cgroups output format, i.e. cpu in cpu shares (cores multiplied by 1024
@@ -549,8 +555,9 @@ or limit of `64Mi` in the container spec will be output as `67108864`
 bytes, and cpu request or limit of `250m` (millicores) will be output as
 `256` of cpu shares.
 
-## Use cases
-Here we discuss how to use exposed resources limits to set, for example, GOMAXPROCS and Java
+## Applied example
+
+Here we discuss how to use exposed resources limits to set, for example, Java
 memory size for your applications. Lets say, you expose a container's (running an application like
 tomcat for example) memory limit as `MEMORY_LIMIT` environment variable or as `/etc/memory_limit`
 in a volume. One way to set the heap size for this application would be to wrap the binary
@@ -563,16 +570,6 @@ export JAVA_OPTS="$JAVA_OPTS -Xmx:$(MEMORY_LIMIT)"
 Or
 
 export JAVA_OPTS="$JAVA_OPTS -Xmx:$(cat /etc/memory_limit)"
-```
-
-Similarly for GOMAXPROCS,
-
-```
-export GOMAXPROCS="$(CPU_LIMIT)"
-
-Or
-
-export GOMAXPROCS="$(cat /etc/cpu_limit)"
 ```
 
 <!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
