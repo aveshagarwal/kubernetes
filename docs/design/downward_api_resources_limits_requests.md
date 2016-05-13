@@ -54,8 +54,8 @@ containers:
 
 1. The first approach requires users to specify full json path selectors
 in which selectors are relative to the pod spec. The benefit of this
-approach is to specify pod level resources, and since containers are
-also part of a pod spec, it can be used to specify container level
+approach is to specify pod-level resources, and since containers are
+also part of a pod spec, it can be used to specify container-level
 resources too.
 
 2. The second approach requires specifying partial json path selectors
@@ -195,7 +195,7 @@ spec:
         - name: CPU_LIMIT
           valueFrom:
             fieldRef:
-              fieldPath: spec.containers[?(@.name=="container-name")].resources.limits.cpu
+              fieldPath: spec.containers[?(@.name=="test-container")].resources.limits.cpu
 ```
 
 ```
@@ -225,7 +225,7 @@ spec:
         items:
           - path: "cpu_limit"
             fieldRef:
-              fieldPath: spec.containers[?(@.name=="container-name")].resources.limits.cpu
+              fieldPath: spec.containers[?(@.name=="client-container")].resources.limits.cpu
 ```
 
 #### Validations
@@ -238,12 +238,12 @@ valid relative to pod spec.
 
 Partial json path selectors specify paths to resources limits and requests
 relative to the container spec. These will be implemented by introducing a
-`ContainerFieldSelector` (json: `containerSpecFieldRef`) to extend the current
+`ContainerSpecFieldSelector` (json: `containerSpecFieldRef`) to extend the current
 implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource struct`.
 
 ```
-// ContainerFieldSelector selects an APIVersioned field of an object.
-type ContainerFieldSelector struct {
+// ContainerSpecFieldSelector selects an APIVersioned field of an object.
+type ContainerSpecFieldSelector struct {
         APIVersion string `json:"apiVersion"`
         // Container name
         Name string `json:"containerName,omitempty"`
@@ -261,15 +261,16 @@ type DownwardAPIVolumeFile struct {
      // Selects a field of the container: only resources limits and requests
      // (resources.limits.cpu, resources.limits.memory, resources.requests.cpu,
      // resources.requests.memory) are currently supported.
-     ContainerFieldRef *ContainerFieldSelector `json:"containerSpecFieldRef,omitempty"`
+     ContainerSpecFieldRef *ContainerSpecFieldSelector `json:"containerSpecFieldRef,omitempty"`
 }
 
 // EnvVarSource represents a source for the value of an EnvVar.
 // Only one of its fields may be set.
 type EnvVarSource struct {
-   // Required: Selects a field of the container: only resources limits and
-   // requests (cpu, memory) are supported.
-   ContainerFieldRef *ContainerFieldSelector `json:"containerSpecFieldRef,omitempty"`
+   // Selects a field of the container: only resources limits and requests
+     // (resources.limits.cpu, resources.limits.memory, resources.requests.cpu,
+     // resources.requests.memory) are currently supported.
+   ContainerSpecFieldRef *ContainerSpecFieldSelector `json:"containerSpecFieldRef,omitempty"`
    // Selects a field of the pod; only name and namespace are supported.
    FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
    // Selects a key of a ConfigMap.
@@ -327,7 +328,8 @@ metadata:
 spec:
   containers:
     - name: test-container
-      image: gcr.io/google_containers/busybox command: [ "/bin/sh","-c", "env" ]
+      image: gcr.io/google_containers/busybox
+      command: [ "/bin/sh","-c", "env" ]
       resources:
         requests:
           memory: "64Mi"
@@ -350,8 +352,9 @@ metadata:
 spec:
   containers:
     - name: client-container
-      image: gcr.io/google_containers/busybox command: ["sh", "-c", "while true; do if [[ -e /etc/labels ]]; then cat /etc/labels; fi; if [[ -e /etc/annotations ]]; then cat /etc/annotations; fi; sleep 5; done"]
-     resources:
+      image: gcr.io/google_containers/busybox
+      command: ["sh", "-c", "while true; do if [[ -e /etc/labels ]]; then cat /etc/labels; fi; if [[ -e /etc/annotations ]]; then cat /etc/annotations; fi; sleep 5; done"]
+      resources:
         requests:
           memory: "64Mi"
 	  cpu: "250m"
@@ -413,8 +416,8 @@ type DownwardAPIVolumeFile struct {
 // EnvVarSource represents a source for the value of an EnvVar.
 // Only one of its fields may be set.
 type EnvVarSource struct {
-   // Required: Selects a resource of the container: only resources limits and
-   // requests (cpu, memory) are supported.
+   // Selects a resource of the container: only resources limits and requests
+   // (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.
    ResourceFieldRef *ResourceFieldSelector `json:"resourceFieldRef,omitempty"`
    // Selects a field of the pod; only name and namespace are supported.
    FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
@@ -523,18 +526,18 @@ For APIs with magic keys, verify that the resource strings are valid and is one
 of `limits.cpu`, `limits.memory`, `requests.cpu` and `requests.memory`.
 Also verify that container name is provided with volumes.
 
-## Pod and container level resource access
+## Pod-level and container-level resource access
 
-Pod level resources (like `metadata.name`, `status.podIP`) will always be accessed with `type ObjectFieldSelector` object in
-all approaches. Container level resources will be accessed by `type ObjectFieldSelector`
-with full selector approach; and by `type ContainerFieldRef` and `type ResourceFieldRef`
+Pod-level resources (like `metadata.name`, `status.podIP`) will always be accessed with `type ObjectFieldSelector` object in
+all approaches. Container-level resources will be accessed by `type ObjectFieldSelector`
+with full selector approach; and by `type ContainerSpecFieldRef` and `type ResourceFieldRef`
 with partial and magic keys approaches, respectively. The following table
 summarizes resource access with these approaches.
 
 | Approach | Pod resources| Container resources |
 | -------------------- | -------------------|-------------------|
 | Full selectors | `ObjectFieldSelector` | `ObjectFieldSelector`|
-| Partial selectors | `ObjectFieldSelector`| `ContainerFieldRef` |
+| Partial selectors | `ObjectFieldSelector`| `ContainerSpecFieldRef` |
 | Magic keys | `ObjectFieldSelector`| `ResourceFieldRef` |
 
 ## Output Format
@@ -546,6 +549,31 @@ or limit of `64Mi` in the container spec will be output as `67108864`
 bytes, and cpu request or limit of `250m` (millicores) will be output as
 `256` of cpu shares.
 
+## Use cases
+Here we discuss how to use exposed resources limits to set, for example, GOMAXPROCS and Java
+memory size for your applications. Lets say, you expose a container's (running an application like
+tomcat for example) memory limit as `MEMORY_LIMIT` environment variable or as `/etc/memory_limit`
+in a volume. One way to set the heap size for this application would be to wrap the binary
+in a shell script, and then expose `JAVA_OPTS` (assuming your container image supports it)
+environment variable as follows:
+
+```
+export JAVA_OPTS="$JAVA_OPTS -Xmx:$(MEMORY_LIMIT)"
+
+Or
+
+export JAVA_OPTS="$JAVA_OPTS -Xmx:$(cat /etc/memory_limit)"
+```
+
+Similarly for GOMAXPROCS,
+
+```
+export GOMAXPROCS="$(CPU_LIMIT)"
+
+Or
+
+export GOMAXPROCS="$(cat /etc/cpu_limit)"
+```
 
 <!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/design/downward_api_resources_limits_requests.md?pixel)]()
