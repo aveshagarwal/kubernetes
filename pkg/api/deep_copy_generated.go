@@ -50,6 +50,7 @@ func init() {
 		DeepCopy_api_Container,
 		DeepCopy_api_ContainerImage,
 		DeepCopy_api_ContainerPort,
+		DeepCopy_api_ContainerSpecFieldSelector,
 		DeepCopy_api_ContainerState,
 		DeepCopy_api_ContainerStateRunning,
 		DeepCopy_api_ContainerStateTerminated,
@@ -534,6 +535,13 @@ func DeepCopy_api_ContainerPort(in ContainerPort, out *ContainerPort, c *convers
 	return nil
 }
 
+func DeepCopy_api_ContainerSpecFieldSelector(in ContainerSpecFieldSelector, out *ContainerSpecFieldSelector, c *conversion.Cloner) error {
+	out.APIVersion = in.APIVersion
+	out.Name = in.Name
+	out.FieldPath = in.FieldPath
+	return nil
+}
+
 func DeepCopy_api_ContainerState(in ContainerState, out *ContainerState, c *conversion.Cloner) error {
 	if in.Waiting != nil {
 		in, out := in.Waiting, &out.Waiting
@@ -665,8 +673,23 @@ func DeepCopy_api_DeleteOptions(in DeleteOptions, out *DeleteOptions, c *convers
 
 func DeepCopy_api_DownwardAPIVolumeFile(in DownwardAPIVolumeFile, out *DownwardAPIVolumeFile, c *conversion.Cloner) error {
 	out.Path = in.Path
-	if err := DeepCopy_api_ObjectFieldSelector(in.FieldRef, &out.FieldRef, c); err != nil {
-		return err
+	if in.FieldRef != nil {
+		in, out := in.FieldRef, &out.FieldRef
+		*out = new(ObjectFieldSelector)
+		if err := DeepCopy_api_ObjectFieldSelector(*in, *out, c); err != nil {
+			return err
+		}
+	} else {
+		out.FieldRef = nil
+	}
+	if in.ContainerSpecFieldRef != nil {
+		in, out := in.ContainerSpecFieldRef, &out.ContainerSpecFieldRef
+		*out = new(ContainerSpecFieldSelector)
+		if err := DeepCopy_api_ContainerSpecFieldSelector(*in, *out, c); err != nil {
+			return err
+		}
+	} else {
+		out.ContainerSpecFieldRef = nil
 	}
 	return nil
 }
@@ -834,6 +857,15 @@ func DeepCopy_api_EnvVarSource(in EnvVarSource, out *EnvVarSource, c *conversion
 		}
 	} else {
 		out.SecretKeyRef = nil
+	}
+	if in.ContainerSpecFieldRef != nil {
+		in, out := in.ContainerSpecFieldRef, &out.ContainerSpecFieldRef
+		*out = new(ContainerSpecFieldSelector)
+		if err := DeepCopy_api_ContainerSpecFieldSelector(*in, *out, c); err != nil {
+			return err
+		}
+	} else {
+		out.ContainerSpecFieldRef = nil
 	}
 	return nil
 }

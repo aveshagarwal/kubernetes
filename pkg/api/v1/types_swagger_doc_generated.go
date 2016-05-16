@@ -225,6 +225,17 @@ func (ContainerPort) SwaggerDoc() map[string]string {
 	return map_ContainerPort
 }
 
+var map_ContainerSpecFieldSelector = map[string]string{
+	"":              "ContainerSpecFieldSelector selects an APIVersioned field of a container.",
+	"apiVersion":    "Version of the schema the FieldPath is written in terms of, defaults to \"v1\"",
+	"containerName": "Container name",
+	"fieldPath":     "Required: Path of the field to select in the specified API version",
+}
+
+func (ContainerSpecFieldSelector) SwaggerDoc() map[string]string {
+	return map_ContainerSpecFieldSelector
+}
+
 var map_ContainerState = map[string]string{
 	"":           "ContainerState holds a possible state of container. Only one of its members may be specified. If none of them is specified, the default one is ContainerStateWaiting.",
 	"waiting":    "Details about a waiting container",
@@ -399,10 +410,11 @@ func (EnvVar) SwaggerDoc() map[string]string {
 }
 
 var map_EnvVarSource = map[string]string{
-	"":                "EnvVarSource represents a source for the value of an EnvVar.",
-	"fieldRef":        "Selects a field of the pod; only name and namespace are supported.",
-	"configMapKeyRef": "Selects a key of a ConfigMap.",
-	"secretKeyRef":    "Selects a key of a secret in the pod's namespace",
+	"":                      "EnvVarSource represents a source for the value of an EnvVar.",
+	"fieldRef":              "Selects a field of the pod; only name and namespace are supported.",
+	"configMapKeyRef":       "Selects a key of a ConfigMap.",
+	"secretKeyRef":          "Selects a key of a secret in the pod's namespace",
+	"containerSpecFieldRef": "Selects a field of a container in the pod",
 }
 
 func (EnvVarSource) SwaggerDoc() map[string]string {

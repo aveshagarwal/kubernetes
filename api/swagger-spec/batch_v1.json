@@ -1710,8 +1710,7 @@
     "id": "v1.DownwardAPIVolumeFile",
     "description": "DownwardAPIVolumeFile represents information to create the file containing the pod field",
     "required": [
-     "path",
-     "fieldRef"
+     "path"
     ],
     "properties": {
      "path": {
@@ -1721,6 +1720,9 @@
      "fieldRef": {
       "$ref": "v1.ObjectFieldSelector",
       "description": "Required: Selects a field of the pod: only annotations, labels, name and namespace are supported."
+     },
+     "containerSpecFieldRef": {
+      "$ref": "v1.ContainerSpecFieldSelector"
      }
     }
    },
@@ -1738,6 +1740,28 @@
      "fieldPath": {
       "type": "string",
       "description": "Path of the field to select in the specified API version."
+     }
+    }
+   },
+   "v1.ContainerSpecFieldSelector": {
+    "id": "v1.ContainerSpecFieldSelector",
+    "description": "ContainerSpecFieldSelector selects an APIVersioned field of a container.",
+    "required": [
+     "apiVersion",
+     "fieldPath"
+    ],
+    "properties": {
+     "apiVersion": {
+      "type": "string",
+      "description": "Version of the schema the FieldPath is written in terms of, defaults to \"v1\""
+     },
+     "containerName": {
+      "type": "string",
+      "description": "Container name"
+     },
+     "fieldPath": {
+      "type": "string",
+      "description": "Required: Path of the field to select in the specified API version"
      }
     }
    },
@@ -1973,6 +1997,10 @@
      "secretKeyRef": {
       "$ref": "v1.SecretKeySelector",
       "description": "Selects a key of a secret in the pod's namespace"
+     },
+     "containerSpecFieldRef": {
+      "$ref": "v1.ContainerSpecFieldSelector",
+      "description": "Selects a field of a container in the pod"
      }
     }
    },

@@ -65,6 +65,8 @@ func init() {
 		Convert_api_ContainerImage_To_v1_ContainerImage,
 		Convert_v1_ContainerPort_To_api_ContainerPort,
 		Convert_api_ContainerPort_To_v1_ContainerPort,
+		Convert_v1_ContainerSpecFieldSelector_To_api_ContainerSpecFieldSelector,
+		Convert_api_ContainerSpecFieldSelector_To_v1_ContainerSpecFieldSelector,
 		Convert_v1_ContainerState_To_api_ContainerState,
 		Convert_api_ContainerState_To_v1_ContainerState,
 		Convert_v1_ContainerStateRunning_To_api_ContainerStateRunning,
@@ -1162,6 +1164,28 @@ func Convert_api_ContainerPort_To_v1_ContainerPort(in *api.ContainerPort, out *C
 	return autoConvert_api_ContainerPort_To_v1_ContainerPort(in, out, s)
 }
 
+func autoConvert_v1_ContainerSpecFieldSelector_To_api_ContainerSpecFieldSelector(in *ContainerSpecFieldSelector, out *api.ContainerSpecFieldSelector, s conversion.Scope) error {
+	out.APIVersion = in.APIVersion
+	out.Name = in.Name
+	out.FieldPath = in.FieldPath
+	return nil
+}
+
+func Convert_v1_ContainerSpecFieldSelector_To_api_ContainerSpecFieldSelector(in *ContainerSpecFieldSelector, out *api.ContainerSpecFieldSelector, s conversion.Scope) error {
+	return autoConvert_v1_ContainerSpecFieldSelector_To_api_ContainerSpecFieldSelector(in, out, s)
+}
+
+func autoConvert_api_ContainerSpecFieldSelector_To_v1_ContainerSpecFieldSelector(in *api.ContainerSpecFieldSelector, out *ContainerSpecFieldSelector, s conversion.Scope) error {
+	out.APIVersion = in.APIVersion
+	out.Name = in.Name
+	out.FieldPath = in.FieldPath
+	return nil
+}
+
+func Convert_api_ContainerSpecFieldSelector_To_v1_ContainerSpecFieldSelector(in *api.ContainerSpecFieldSelector, out *ContainerSpecFieldSelector, s conversion.Scope) error {
+	return autoConvert_api_ContainerSpecFieldSelector_To_v1_ContainerSpecFieldSelector(in, out, s)
+}
+
 func autoConvert_v1_ContainerState_To_api_ContainerState(in *ContainerState, out *api.ContainerState, s conversion.Scope) error {
 	if in.Waiting != nil {
 		in, out := &in.Waiting, &out.Waiting
@@ -1440,8 +1464,23 @@ func Convert_api_DeleteOptions_To_v1_DeleteOptions(in *api.DeleteOptions, out *D
 
 func autoConvert_v1_DownwardAPIVolumeFile_To_api_DownwardAPIVolumeFile(in *DownwardAPIVolumeFile, out *api.DownwardAPIVolumeFile, s conversion.Scope) error {
 	out.Path = in.Path
-	if err := Convert_v1_ObjectFieldSelector_To_api_ObjectFieldSelector(&in.FieldRef, &out.FieldRef, s); err != nil {
-		return err
+	if in.FieldRef != nil {
+		in, out := &in.FieldRef, &out.FieldRef
+		*out = new(api.ObjectFieldSelector)
+		if err := Convert_v1_ObjectFieldSelector_To_api_ObjectFieldSelector(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.FieldRef = nil
+	}
+	if in.ContainerSpecFieldRef != nil {
+		in, out := &in.ContainerSpecFieldRef, &out.ContainerSpecFieldRef
+		*out = new(api.ContainerSpecFieldSelector)
+		if err := Convert_v1_ContainerSpecFieldSelector_To_api_ContainerSpecFieldSelector(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.ContainerSpecFieldRef = nil
 	}
 	return nil
 }
@@ -1452,8 +1491,23 @@ func Convert_v1_DownwardAPIVolumeFile_To_api_DownwardAPIVolumeFile(in *DownwardA
 
 func autoConvert_api_DownwardAPIVolumeFile_To_v1_DownwardAPIVolumeFile(in *api.DownwardAPIVolumeFile, out *DownwardAPIVolumeFile, s conversion.Scope) error {
 	out.Path = in.Path
-	if err := Convert_api_ObjectFieldSelector_To_v1_ObjectFieldSelector(&in.FieldRef, &out.FieldRef, s); err != nil {
-		return err
+	if in.FieldRef != nil {
+		in, out := &in.FieldRef, &out.FieldRef
+		*out = new(ObjectFieldSelector)
+		if err := Convert_api_ObjectFieldSelector_To_v1_ObjectFieldSelector(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.FieldRef = nil
+	}
+	if in.ContainerSpecFieldRef != nil {
+		in, out := &in.ContainerSpecFieldRef, &out.ContainerSpecFieldRef
+		*out = new(ContainerSpecFieldSelector)
+		if err := Convert_api_ContainerSpecFieldSelector_To_v1_ContainerSpecFieldSelector(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.ContainerSpecFieldRef = nil
 	}
 	return nil
 }
@@ -1827,6 +1881,15 @@ func autoConvert_v1_EnvVarSource_To_api_EnvVarSource(in *EnvVarSource, out *api.
 	} else {
 		out.SecretKeyRef = nil
 	}
+	if in.ContainerSpecFieldRef != nil {
+		in, out := &in.ContainerSpecFieldRef, &out.ContainerSpecFieldRef
+		*out = new(api.ContainerSpecFieldSelector)
+		if err := Convert_v1_ContainerSpecFieldSelector_To_api_ContainerSpecFieldSelector(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.ContainerSpecFieldRef = nil
+	}
 	return nil
 }
 
@@ -1861,6 +1924,15 @@ func autoConvert_api_EnvVarSource_To_v1_EnvVarSource(in *api.EnvVarSource, out *
 		}
 	} else {
 		out.SecretKeyRef = nil
+	}
+	if in.ContainerSpecFieldRef != nil {
+		in, out := &in.ContainerSpecFieldRef, &out.ContainerSpecFieldRef
+		*out = new(ContainerSpecFieldSelector)
+		if err := Convert_api_ContainerSpecFieldSelector_To_v1_ContainerSpecFieldSelector(*in, *out, s); err != nil {
+			return err
+		}
+	} else {
+		out.ContainerSpecFieldRef = nil
 	}
 	return nil
 }

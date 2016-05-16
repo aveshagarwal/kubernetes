@@ -387,6 +387,18 @@ message ContainerPort {
   optional string hostIP = 5;
 }
 
+// ContainerSpecFieldSelector selects an APIVersioned field of a container.
+message ContainerSpecFieldSelector {
+  // Version of the schema the FieldPath is written in terms of, defaults to "v1"
+  optional string apiVersion = 1;
+
+  // Container name
+  optional string containerName = 2;
+
+  // Required: Path of the field to select in the specified API version
+  optional string fieldPath = 3;
+}
+
 // ContainerState holds a possible state of container.
 // Only one of its members may be specified.
 // If none of them is specified, the default one is ContainerStateWaiting.
@@ -504,6 +516,8 @@ message DownwardAPIVolumeFile {
 
   // Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
   optional ObjectFieldSelector fieldRef = 2;
+
+  optional ContainerSpecFieldSelector containerSpecFieldRef = 3;
 }
 
 // DownwardAPIVolumeSource represents a volume containing downward API info.
@@ -646,6 +660,9 @@ message EnvVarSource {
 
   // Selects a key of a secret in the pod's namespace
   optional SecretKeySelector secretKeyRef = 3;
+
+  // Selects a field of a container in the pod
+  optional ContainerSpecFieldSelector containerSpecFieldRef = 4;
 }
 
 // Event is a report of an event somewhere in the cluster.
