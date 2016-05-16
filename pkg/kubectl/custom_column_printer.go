@@ -41,33 +41,6 @@ const (
 
 var jsonRegexp = regexp.MustCompile("^\\{\\.?([^{}]+)\\}$|^\\.?([^{}]+)$")
 
-// MassageJSONPath attempts to be flexible with JSONPath expressions, it accepts:
-//   * metadata.name (no leading '.' or curly brances '{...}'
-//   * {metadata.name} (no leading '.')
-//   * .metadata.name (no curly braces '{...}')
-//   * {.metadata.name} (complete expression)
-// And transforms them all into a valid jsonpat expression:
-//   {.metadata.name}
-func massageJSONPath(pathExpression string) (string, error) {
-	if len(pathExpression) == 0 {
-		return pathExpression, nil
-	}
-	submatches := jsonRegexp.FindStringSubmatch(pathExpression)
-	if submatches == nil {
-		return "", fmt.Errorf("unexpected path string, expected a 'name1.name2' or '.name1.name2' or '{name1.name2}' or '{.name1.name2}'")
-	}
-	if len(submatches) != 3 {
-		return "", fmt.Errorf("unexpected submatch list: %v", submatches)
-	}
-	var fieldSpec string
-	if len(submatches[1]) != 0 {
-		fieldSpec = submatches[1]
-	} else {
-		fieldSpec = submatches[2]
-	}
-	return fmt.Sprintf("{.%s}", fieldSpec), nil
-}
-
 // NewCustomColumnsPrinterFromSpec creates a custom columns printer from a comma separated list of <header>:<jsonpath-field-spec> pairs.
 // e.g. NAME:metadata.name,API_VERSION:apiVersion creates a printer that prints:
 //
@@ -84,7 +57,7 @@ func NewCustomColumnsPrinterFromSpec(spec string, decoder runtime.Decoder) (*Cus
 		if len(colSpec) != 2 {
 			return nil, fmt.Errorf("unexpected custom-columns spec: %s, expected <header>:<json-path-expr>", parts[ix])
 		}
-		spec, err := massageJSONPath(colSpec[1])
+		spec, err := jsonpath.MassageJSONPath(colSpec[1], jsonRegexp)
 		if err != nil {
 			return nil, err
 		}
@@ -126,7 +99,7 @@ func NewCustomColumnsPrinterFromTemplate(templateReader io.Reader, decoder runti
 
 	columns := make([]Column, len(headers))
 	for ix := range headers {
-		spec, err := massageJSONPath(specs[ix])
+		spec, err := jsonpath.MassageJSONPath(specs[ix], jsonRegexp)
 		if err != nil {
 			return nil, err
 		}

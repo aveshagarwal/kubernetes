@@ -18,8 +18,17 @@ package fieldpath
 
 import (
 	"fmt"
+	"reflect"
+	"regexp"
 
+	"github.com/golang/glog"
+
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/util/jsonpath"
 )
 
 // formatMap formats map[string]string to a string.
@@ -57,4 +66,76 @@ func ExtractFieldPathAsString(obj interface{}, fieldPath string) (string, error)
 	}
 
 	return "", fmt.Errorf("Unsupported fieldPath: %v", fieldPath)
+}
+
+var jsonRegexp = regexp.MustCompile("^\\{\\.?([^{}]+)\\}$|^\\.?([^{}]+)$")
+
+// extractJSONFieldSelectorValue validates and returns the value of a field of an object
+func extractJSONFieldSelectorValue(obj interface{}, fieldPath string) (string, error) {
+	parser := jsonpath.New("downward APIs")
+	tmpFieldPath, err := jsonpath.MassageJSONPath(fieldPath, jsonRegexp)
+	if err != nil {
+		return "", err
+	}
+
+	if err := parser.Parse(tmpFieldPath); err != nil {
+		return "", err
+	}
+
+	values, err := parser.FindResults(reflect.ValueOf(obj).Elem().Interface())
+	if err != nil {
+		return "", err
+	}
+	if len(values) == 0 {
+		return "", fmt.Errorf("couldn't find any field with path: %s", tmpFieldPath)
+	}
+
+	return fmt.Sprintf("%s", values[0][0]), nil
+}
+
+// ExtractJSONFieldSelectorValueForContainer returns the values of a field in a container
+func ExtractJSONFieldSelectorValueForContainer(fs *api.ContainerSpecFieldSelector, internalPod *api.Pod, containerName string) (string, error) {
+	gv, err := unversioned.ParseGroupVersion(fs.APIVersion)
+	if err != nil {
+		return "", err
+	}
+
+	versionedPod, err := cloneAndConvertInternalPodToVersioned(internalPod, gv)
+	if err != nil {
+		return "", err
+	}
+
+	versionedContainer, err := findContainerInPod(versionedPod, containerName, gv.String())
+	if err != nil {
+		return "", err
+	}
+
+	return extractJSONFieldSelectorValue(versionedContainer, fs.FieldPath)
+}
+
+// cloneAndConvertInternalPodToVersioned makes a copy of the provided pod and converts it to versioned pod
+func cloneAndConvertInternalPodToVersioned(internalPod *api.Pod, gv unversioned.GroupVersion) (runtime.Object, error) {
+	obj, err := api.Scheme.Copy(internalPod)
+	if err != nil {
+		glog.Errorf("unable to copy pod: %v", err)
+		return nil, err
+	}
+
+	return api.Scheme.ConvertToVersion(obj.(*api.Pod), gv)
+}
+
+// findContainerInPod finds a container with containerName in the provided versioned pod
+func findContainerInPod(versionedObj runtime.Object, containerName string, version string) (interface{}, error) {
+	switch version {
+	case "v1":
+		versionedPod := versionedObj.(*v1.Pod)
+		for _, container := range versionedPod.Spec.Containers {
+			if container.Name == containerName {
+				return &container, nil
+			}
+		}
+		return nil, fmt.Errorf("container %s is not found", containerName)
+	default:
+		return nil, fmt.Errorf("version %s is not supported", version)
+	}
 }

@@ -701,8 +701,10 @@ type DownwardAPIVolumeSource struct {
 type DownwardAPIVolumeFile struct {
 	// Required: Path is  the relative path name of the file to be created. Must not be absolute or contain the '..' path. Must be utf-8 encoded. The first item of the relative path must not start with '..'
 	Path string `json:"path"`
-	// Required: Selects a field of the pod: only annotations, labels, name and  namespace are supported.
-	FieldRef ObjectFieldSelector `json:"fieldRef"`
+	// Selects a field of the pod: only annotations, labels, name and  namespace are supported.
+	FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
+	// Selects a field of a container in the pod
+	ContainerSpecFieldRef *ContainerSpecFieldSelector `json:"containerSpecFieldRef,omitempty"`
 }
 
 // AzureFile represents an Azure File Service mount on the host and bind mount to the pod.
@@ -801,6 +803,8 @@ type EnvVarSource struct {
 	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
 	// Selects a key of a secret in the pod's namespace.
 	SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty"`
+	// Selects a field of a container in the pod
+	ContainerSpecFieldRef *ContainerSpecFieldSelector `json:"containerSpecFieldRef,omitempty"`
 }
 
 // ObjectFieldSelector selects an APIVersioned field of an object.
@@ -809,6 +813,18 @@ type ObjectFieldSelector struct {
 	// If no value is specified, it will be defaulted to the APIVersion of the
 	// enclosing object.
 	APIVersion string `json:"apiVersion"`
+	// Required: Path of the field to select in the specified API version
+	FieldPath string `json:"fieldPath"`
+}
+
+// ContainerSpecFieldSelector selects an APIVersioned field of a container.
+type ContainerSpecFieldSelector struct {
+	// Version of the schema the FieldPath is written in terms of.
+	// If no value is specified, it will be defaulted to the APIVersion of the
+	// enclosing object.
+	APIVersion string `json:"apiVersion"`
+	// Container name
+	Name string `json:"containerName,omitempty"`
 	// Required: Path of the field to select in the specified API version
 	FieldPath string `json:"fieldPath"`
 }

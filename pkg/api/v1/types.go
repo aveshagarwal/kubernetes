@@ -928,6 +928,8 @@ type EnvVarSource struct {
 	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" protobuf:"bytes,2,opt,name=configMapKeyRef"`
 	// Selects a key of a secret in the pod's namespace
 	SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty" protobuf:"bytes,3,opt,name=secretKeyRef"`
+	// Selects a field of a container in the pod
+	ContainerSpecFieldRef *ContainerSpecFieldSelector `json:"containerSpecFieldRef,omitempty" protobuf:"bytes,4,opt,name=containerSpecFieldRef"`
 }
 
 // ObjectFieldSelector selects an APIVersioned field of an object.
@@ -936,6 +938,16 @@ type ObjectFieldSelector struct {
 	APIVersion string `json:"apiVersion,omitempty" protobuf:"bytes,1,opt,name=apiVersion"`
 	// Path of the field to select in the specified API version.
 	FieldPath string `json:"fieldPath" protobuf:"bytes,2,opt,name=fieldPath"`
+}
+
+// ContainerSpecFieldSelector selects an APIVersioned field of a container.
+type ContainerSpecFieldSelector struct {
+	// Version of the schema the FieldPath is written in terms of, defaults to "v1"
+	APIVersion string `json:"apiVersion" protobuf:"bytes,1,opt,name=apiVersion"`
+	// Container name
+	Name string `json:"containerName,omitempty" protobuf:"bytes,2,opt,name=containerName"`
+	// Required: Path of the field to select in the specified API version
+	FieldPath string `json:"fieldPath" protobuf:"bytes,3,opt,name=fieldPath"`
 }
 
 // Selects a key from a ConfigMap.
@@ -3188,7 +3200,8 @@ type DownwardAPIVolumeFile struct {
 	// Required: Path is  the relative path name of the file to be created. Must not be absolute or contain the '..' path. Must be utf-8 encoded. The first item of the relative path must not start with '..'
 	Path string `json:"path" protobuf:"bytes,1,opt,name=path"`
 	// Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.
-	FieldRef ObjectFieldSelector `json:"fieldRef" protobuf:"bytes,2,opt,name=fieldRef"`
+	FieldRef              *ObjectFieldSelector        `json:"fieldRef,omitempty" protobuf:"bytes,2,opt,name=fieldRef"`
+	ContainerSpecFieldRef *ContainerSpecFieldSelector `json:"containerSpecFieldRef,omitempty" protobuf:"bytes,3,opt,name=containerSpecFieldRef"`
 }
 
 // SecurityContext holds security configuration that will be applied to a container.

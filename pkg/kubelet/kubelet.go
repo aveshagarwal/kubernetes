@@ -1506,6 +1506,16 @@ func (kl *Kubelet) makeEnvironmentVariables(pod *api.Pod, container *api.Contain
 				if err != nil {
 					return result, err
 				}
+			case envVar.ValueFrom.ContainerSpecFieldRef != nil:
+				containerName := envVar.ValueFrom.ContainerSpecFieldRef.Name
+				if len(containerName) == 0 {
+					runtimeVal, err = fieldpath.ExtractJSONFieldSelectorValueForContainer(envVar.ValueFrom.ContainerSpecFieldRef, pod, container.Name)
+				} else {
+					runtimeVal, err = fieldpath.ExtractJSONFieldSelectorValueForContainer(envVar.ValueFrom.ContainerSpecFieldRef, pod, containerName)
+				}
+				if err != nil {
+					return result, err
+				}
 			case envVar.ValueFrom.ConfigMapKeyRef != nil:
 				name := envVar.ValueFrom.ConfigMapKeyRef.Name
 				key := envVar.ValueFrom.ConfigMapKeyRef.Key
