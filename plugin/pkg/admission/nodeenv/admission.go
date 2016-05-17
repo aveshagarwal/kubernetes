@@ -22,16 +22,16 @@ func init() {
 	})
 }
 
-const (
-	NamespaceNodeSelector = "kubernetes.io/node-selector"
-)
+var NamespaceNodeSelectors = []string{"kubernetes.io/node-selector"}
 
 // podNodeEnvironment is an implementation of admission.Interface.
 type podNodeEnvironment struct {
 	*admission.Handler
-	client              clientset.Interface
-	store               cache.Store
-	defaultNodeSelector string
+	client clientset.Interface
+	store  cache.Store
+	// global default node selector in a cluster, If a namespace is
+	// not assigned any node selector, the namespace gets this by default.
+	clusterDefaultNodeSelector string
 }
 
 // Admit enforces that pod and its namespace node label selectors matches at least a node in the cluster.
@@ -48,7 +48,7 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 	obj := a.GetObject()
 	pod, ok := obj.(*api.Pod)
 	if !ok {
-		glog.Warning("expected pod but got something else")
+		glog.Errorf("expected pod but got %s", a.GetKind().Kind)
 		return nil
 	}
 
@@ -93,7 +93,8 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 	return nil
 }
 
-func NewPodNodeEnvironment(client clientset.Interface, defaultNodeSelector string) (admission.Interface, error) {
+func NewPodNodeEnvironment(client clientset.Interface, clusterDefaultNodeSelector string) (admission.Interface, error) {
+	// TODO: make it a shared cache to use between admission plugins
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	reflector := cache.NewReflector(
 		&cache.ListWatch{
@@ -110,10 +111,10 @@ func NewPodNodeEnvironment(client clientset.Interface, defaultNodeSelector strin
 	)
 	reflector.Run()
 	return &podNodeEnvironment{
-		Handler:             admission.NewHandler(admission.Create),
-		client:              client,
-		store:               store,
-		defaultNodeSelector: defaultNodeSelector,
+		Handler: admission.NewHandler(admission.Create),
+		client:  client,
+		store:   store,
+		clusterDefaultNodeSelector: clusterDefaultNodeSelector,
 	}, nil
 }
 
@@ -126,21 +127,33 @@ func (p *podNodeEnvironment) defaultGetNamespace(name string) (*api.Namespace, e
 }
 
 func (p *podNodeEnvironment) getNodeSelectorMap(namespace *api.Namespace) (map[string]string, error) {
-	selector := ""
+	selector := map[string]string{}
+	labelsMap := map[string]string{}
+	var err error
 	found := false
 	if len(namespace.ObjectMeta.Annotations) > 0 {
-		if ns, ok := namespace.ObjectMeta.Annotations[NamespaceNodeSelector]; ok {
-			selector = ns
-			found = true
+		for _, annotation := range NamespaceNodeSelectors {
+			if ns, ok := namespace.ObjectMeta.Annotations[annotation]; ok {
+
+				labelsMap, err = labels.ConvertSelectorToLabelsMap(ns)
+				if err != nil {
+					return map[string]string{}, err
+				}
+
+				if labels.Conflicts(selector, labelsMap) {
+					nsName := namespace.ObjectMeta.Name
+					return map[string]string{}, fmt.Errorf("%s annotations' node label selectors conflict", nsName)
+				}
+				selector = labels.Merge(selector, labelsMap)
+				found = true
+			}
 		}
 	}
 	if !found {
-		selector = p.defaultNodeSelector
+		selector, err = labels.ConvertSelectorToLabelsMap(p.clusterDefaultNodeSelector)
+		if err != nil {
+			return map[string]string{}, err
+		}
 	}
-
-	labelsMap, err := labels.ConvertSelectorToLabelsMap(selector)
-	if err != nil {
-		return map[string]string{}, err
-	}
-	return labelsMap, nil
+	return selector, nil
 }

@@ -104,7 +104,7 @@ func TestPodAdmission(t *testing.T) {
 			namespace.ObjectMeta.Annotations = map[string]string{"kubernetes.io/node-selector": test.namespaceNodeSelector}
 		}
 		handler.store.Update(namespace)
-		handler.defaultNodeSelector = test.defaultNodeSelector
+		handler.clusterDefaultNodeSelector = test.defaultNodeSelector
 		pod.Spec = api.PodSpec{NodeSelector: test.podNodeSelector}
 
 		err := handler.Admit(admission.NewAttributesRecord(pod, api.Kind("Pod").WithVersion("version"), "testNamespace", namespace.ObjectMeta.Name, api.Resource("pods").WithVersion("version"), "", admission.Create, nil))
