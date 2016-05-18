@@ -60,7 +60,6 @@ func readConfig(config io.Reader) string {
 		}
 		break
 	}
-	glog.Infof("clusterDefaultNodeSelector = %s", defaultConfig.PodNodeEnvironmentPluginConfig["clusterDefaultNodeSelector"])
 	return defaultConfig.PodNodeEnvironmentPluginConfig["clusterDefaultNodeSelector"]
 }
 
@@ -113,14 +112,12 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 		return err
 	}
 
-	glog.Infof("namespaceNodeSelector %#v", namespaceNodeSelector)
 	if labels.Conflicts(namespaceNodeSelector, pod.Spec.NodeSelector) {
 		return errors.NewForbidden(resource, name, fmt.Errorf("pod node label selector conflicts with its namespace node label selector"))
 	}
 
 	// modify pod node selector = namespace node selector + current pod node selector
 	pod.Spec.NodeSelector = labels.Merge(namespaceNodeSelector, pod.Spec.NodeSelector)
-	glog.Infof("final podNodeSelector %#v", pod.Spec.NodeSelector)
 	return nil
 }
 
