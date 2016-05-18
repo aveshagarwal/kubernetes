@@ -3,6 +3,7 @@ package nodeenv
 import (
 	"fmt"
 	"io"
+	"reflect"
 
 	"github.com/golang/glog"
 
@@ -13,16 +14,17 @@ import (
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/util/yaml"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
+var NamespaceNodeSelectors = []string{"kubernetes.io/node-selector"}
+
 func init() {
 	admission.RegisterPlugin("PodNodeEnvironment", func(client clientset.Interface, config io.Reader) (admission.Interface, error) {
-		return NewPodNodeEnvironment(client, "")
+		return NewPodNodeEnvironment(client, readConfig(config))
 	})
 }
-
-var NamespaceNodeSelectors = []string{"kubernetes.io/node-selector"}
 
 // podNodeEnvironment is an implementation of admission.Interface.
 type podNodeEnvironment struct {
@@ -30,8 +32,36 @@ type podNodeEnvironment struct {
 	client clientset.Interface
 	store  cache.Store
 	// global default node selector in a cluster, If a namespace is
-	// not assigned any node selector, the namespace gets this by default.
+	// not assigned any node selector, it gets this by default.
 	clusterDefaultNodeSelector string
+}
+
+type pluginConfig struct {
+	PodNodeEnvironmentPluginConfig map[string]string
+}
+
+// readConfig reads default value of clusterDefaultNodeSelector
+// from the file provided with --admission-control-config-file
+// If the file is not supplied, it defaults to ""
+// The format in a file:
+// podNodeEnvironmentPluginConfig:
+//  clusterDefaultNodeSelector: <node-selectors-labels>
+func readConfig(config io.Reader) string {
+	if config == nil || reflect.ValueOf(config).IsNil() {
+		return ""
+	}
+	defaultConfig := pluginConfig{}
+	d := yaml.NewYAMLOrJSONDecoder(config, 4096)
+	for {
+		if err := d.Decode(&defaultConfig); err != nil {
+			if err != io.EOF {
+				continue
+			}
+		}
+		break
+	}
+	glog.Infof("clusterDefaultNodeSelector = %s", defaultConfig.PodNodeEnvironmentPluginConfig["clusterDefaultNodeSelector"])
+	return defaultConfig.PodNodeEnvironmentPluginConfig["clusterDefaultNodeSelector"]
 }
 
 // Admit enforces that pod and its namespace node label selectors matches at least a node in the cluster.
@@ -83,13 +113,14 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 		return err
 	}
 
+	glog.Infof("namespaceNodeSelector %#v", namespaceNodeSelector)
 	if labels.Conflicts(namespaceNodeSelector, pod.Spec.NodeSelector) {
 		return errors.NewForbidden(resource, name, fmt.Errorf("pod node label selector conflicts with its namespace node label selector"))
 	}
 
 	// modify pod node selector = namespace node selector + current pod node selector
 	pod.Spec.NodeSelector = labels.Merge(namespaceNodeSelector, pod.Spec.NodeSelector)
-
+	glog.Infof("final podNodeSelector %#v", pod.Spec.NodeSelector)
 	return nil
 }
 

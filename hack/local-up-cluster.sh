@@ -319,9 +319,9 @@ function set_service_accounts {
 function start_apiserver {
     # Admission Controllers to invoke prior to persisting objects in cluster
     if [[ -z "${ALLOW_SECURITY_CONTEXT}" ]]; then
-      ADMISSION_CONTROL=NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota,DefaultStorageClass
+      ADMISSION_CONTROL=PodNodeEnvironment,NamespaceLifecycle,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota,DefaultStorageClass
     else
-      ADMISSION_CONTROL=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota,DefaultStorageClass
+      ADMISSION_CONTROL=PodNodeEnvironment,NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota,DefaultStorageClass
     fi
     # This is the default dir and filename where the apiserver will generate a self-signed cert
     # which should be able to be used as the CA to verify itself
@@ -371,6 +371,7 @@ function start_apiserver {
       --secure-port="${API_SECURE_PORT}" \
       --tls-ca-file="${ROOT_CA_FILE}" \
       --insecure-bind-address="${API_HOST_IP}" \
+      --admission-control-config-file=/root/data-json-yaml-files/podnodeenv.yaml \
       --insecure-port="${API_PORT}" \
       --etcd-servers="http://${ETCD_HOST}:${ETCD_PORT}" \
       --service-cluster-ip-range="${SERVICE_CLUSTER_IP_RANGE}" \
