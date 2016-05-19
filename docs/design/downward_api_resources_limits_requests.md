@@ -50,7 +50,7 @@ exposing this information in a runtime-agnostic manner in Kubernetes.
 As an application author, I want to be able to use cpu or memory requests and
 limits to configure the operational requirements of my applications inside containers.
 For example, Java applications expect to be made aware of the available heap size via
-a command line argument to the JVM, for example: java -Xmx:<heap-size>. Similarly, an
+a command line argument to the JVM, for example: java -Xmx:`<heap-size>`. Similarly, an
 application may want to configure its thread pool based on available cpu resources and
 the exported value of GOMAXPROCS.
 
@@ -623,14 +623,13 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: requests.memory
-              divisor: "1"
         - name: CPU_LIMIT
           valueFrom:
             resourceFieldRef:
               resource: requests.cpu
-              divisor: "1"
 ```
-And inside the container, the HEAP_SIZE and GOMAXPROCS could be exported as:
+Note that the value of divisor by default is `1`. Now inside the container,
+the HEAP_SIZE (in bytes) and GOMAXPROCS (in cores) could be exported as:
 
 ```
 export JAVA_OPTS="$JAVA_OPTS -Xmx:$(HEAP_SIZE)"
