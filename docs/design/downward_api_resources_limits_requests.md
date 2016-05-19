@@ -49,7 +49,10 @@ exposing this information in a runtime-agnostic manner in Kubernetes.
 
 As an application author, I want to be able to use cpu or memory requests and
 limits to configure the operational requirements of my applications inside containers.
-For example, Java based applications can configure and adjust their heap size.
+For example, Java applications expect to be made aware of the available heap size via
+a command line argument to the JVM, for example: java -Xmx:<heap-size>. Similarly, an
+application may want to configure its thread pool based on available cpu resources and
+the exported value of GOMAXPROCS.
 
 ## Design
 
@@ -126,7 +129,8 @@ To summarize merits/demerits of each approach:
 |Partial selectors | Container | Yes | Yes | Possible |
 |Magic keys | Container | No | No | Possible|
 
-Note: Please note that pod resources can always be accessed using existing `type ObjectFieldSelector` object in conjunction with partial selectors and magic keys approaches.
+Note: Please note that pod resources can always be accessed using existing `type ObjectFieldSelector` object
+in conjunction with partial selectors and magic keys approaches.
 
 ### API with full JSONpath selectors
 
@@ -252,7 +256,7 @@ implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource st
 type ContainerSpecFieldSelector struct {
         APIVersion string `json:"apiVersion"`
         // Container name
-        Name string `json:"containerName,omitempty"`
+        ContainerName string `json:"containerName,omitempty"`
         // Required: Path of the field to select in the specified API version
         FieldPath string `json:"fieldPath"`
 }
@@ -397,14 +401,31 @@ for cpu and memory are `limits.cpu`, `limits.memory`,
 `requests.cpu` and `requests.memory`. Though these strings are same
 as json path selectors but are processed as fixed strings. These will be implemented by
 introducing a `ResourceFieldSelector` (json: `resourceFieldRef`) to extend the current
-implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource struct`:
+implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource struct`.
+
+The fields in `ResourceFieldSelector` are `containerName` to specify the name of a
+container, `resource` to specify the type of a resource (cpu or memory), and `divisor`
+to specify the output format of values of exposed resources. The default value of `divisor`
+is `1` which means `cores` for cpu and `bytes` for memory. For `cpu`, `divisor`'s valid
+values are `1m` (millicores), `1`(cores), and for memory, the valid values in fixed point integer
+(decimal) are `1`(bytes), `1k`(kilobytes), `1M`(megabytes), `1G`(gigabytes),
+`1T`(terabytes), `1P`(petabytes), `1E`(exabytes), and in their power-of-two equivalents `1Ki(kilobytes)`,
+`1Mi`(megabytes), `1Gi`(gigabytes), `1Ti`(terabytes), `1Pi`(petabytes), `1Ei`(exabytes).
+For more information about these resource formats, [see details](https://github.com/kubernetes/kubernetes/blob/master/docs/design/resources.md).
+
+Also, the exposed values will be `ceiling` of the actual values in the requestd format in divisor.
+For example, if `requests.cpu` is `250m` (250 millicores) and the `divisor` by default is `1`, then
+exposed value will be `1` core. It is because 250 millicores when converted to cores will be 0.25 and
+the ceiling of 0.25 is 1.
 
 ```
 type ResourceFieldSelector struct {
         // Container name
-        Name string `json:"containerName,omitempty"`
+        ContainerName string `json:"containerName,omitempty"`
         // Required: Resource to select
         Resource string `json:"resource"`
+	// Specifies the output format of the exposed resources
+	Divisor resource.Quantity `json:"divisor,omitempty"`
 }
 
 // Represents a single file containing information from the downward API
@@ -493,7 +514,13 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+        - name: MEMORY_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+              divisor: "1Mi"
 ```
+In the above example, the exposed values of CPU_LIMIT and MEMORY_LIMIT will be 1 (in cores) and 128 (in Mi), respectively.
 
 ```
 apiVersion: v1
@@ -524,7 +551,15 @@ spec:
             resourceFieldRef:
               containerName: client-container
               resource: limits.cpu
+              divisor: "1m"
+          - path: "memory_limit"
+            resourceFieldRef:
+              containerName: client-container
+              resource: limits.memory
 ```
+
+In the above example, the exposed values of CPU_LIMIT and MEMORY_LIMIT will be 500 (in millicores) and 134217728 (in bytes), respectively.
+
 
 #### Validations
 
@@ -557,19 +592,52 @@ bytes, and cpu request or limit of `250m` (millicores) will be output as
 
 ## Applied example
 
-Here we discuss how to use exposed resources limits to set, for example, Java
-memory size for your applications. Lets say, you expose a container's (running an application like
-tomcat for example) memory limit as `MEMORY_LIMIT` environment variable or as `/etc/memory_limit`
-in a volume. One way to set the heap size for this application would be to wrap the binary
-in a shell script, and then expose `JAVA_OPTS` (assuming your container image supports it)
-environment variable as follows:
+Here we discuss how to use exposed resource values to set, for example, Java
+memory size or GOMAXPROCS for your applications. Lets say, you expose a container's
+(running an application like tomcat for example) requested memory as `HEAP_SIZE`
+and requested cpu as CPU_LIMIT (or could be GOMAXPROCS directly) environment variable.
+One way to set the heap size or cpu for this application would be to wrap the binary
+in a shell script, and then export `JAVA_OPTS` (assuming your container image supports it)
+and GOMAXPROCS environment variables inside the container image. The spec file for the
+application pod could look like:
 
 ```
-export JAVA_OPTS="$JAVA_OPTS -Xmx:$(MEMORY_LIMIT)"
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubernetes-downwardapi-volume-example
+spec:
+  containers:
+    - name: test-container
+      image: gcr.io/google_containers/busybox
+      command: [ "/bin/sh","-c", "env" ]
+      resources:
+        requests:
+          memory: "64M"
+          cpu: "250m"
+        limits:
+          memory: "128M"
+          cpu: "500m"
+      env:
+        - name: HEAP_SIZE
+          valueFrom:
+            resourceFieldRef:
+              resource: requests.memory
+              divisor: "1"
+        - name: CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: requests.cpu
+              divisor: "1"
+```
+And inside the container, the HEAP_SIZE and GOMAXPROCS could be exported as:
 
-Or
+```
+export JAVA_OPTS="$JAVA_OPTS -Xmx:$(HEAP_SIZE)"
 
-export JAVA_OPTS="$JAVA_OPTS -Xmx:$(cat /etc/memory_limit)"
+and
+
+export GOMAXPROCS=$(CPU_LIMIT)"
 ```
 
 <!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
