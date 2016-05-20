@@ -174,9 +174,9 @@ to extend the current implementation for resources requests and limits.
 ```
 // ObjectFieldSelector selects an APIVersioned field of an object.
 type ObjectFieldSelector struct {
-        APIVersion string `json:"apiVersion"`
-        // Required: Path of the field to select in the specified API version
-        FieldPath string `json:"fieldPath"`
+     APIVersion string `json:"apiVersion"`
+     // Required: Path of the field to select in the specified API version
+     FieldPath string `json:"fieldPath"`
 }
 ```
 
@@ -254,11 +254,11 @@ implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource st
 ```
 // ContainerSpecFieldSelector selects an APIVersioned field of an object.
 type ContainerSpecFieldSelector struct {
-        APIVersion string `json:"apiVersion"`
-        // Container name
-        ContainerName string `json:"containerName,omitempty"`
-        // Required: Path of the field to select in the specified API version
-        FieldPath string `json:"fieldPath"`
+     APIVersion string `json:"apiVersion"`
+     // Container name
+     ContainerName string `json:"containerName,omitempty"`
+     // Required: Path of the field to select in the specified API version
+     FieldPath string `json:"fieldPath"`
 }
 
 // Represents a single file containing information from the downward API
@@ -277,16 +277,16 @@ type DownwardAPIVolumeFile struct {
 // EnvVarSource represents a source for the value of an EnvVar.
 // Only one of its fields may be set.
 type EnvVarSource struct {
-   // Selects a field of the container: only resources limits and requests
+     // Selects a field of the container: only resources limits and requests
      // (resources.limits.cpu, resources.limits.memory, resources.requests.cpu,
      // resources.requests.memory) are currently supported.
-   ContainerSpecFieldRef *ContainerSpecFieldSelector `json:"containerSpecFieldRef,omitempty"`
-   // Selects a field of the pod; only name and namespace are supported.
-   FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
-   // Selects a key of a ConfigMap.
-   ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
-   // Selects a key of a secret in the pod's namespace.
-   SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty"`
+     ContainerSpecFieldRef *ContainerSpecFieldSelector `json:"containerSpecFieldRef,omitempty"`
+     // Selects a field of the pod; only name and namespace are supported.
+     FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
+     // Selects a key of a ConfigMap.
+     ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
+     // Selects a key of a secret in the pod's namespace.
+     SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 ```
 
@@ -403,29 +403,29 @@ as json path selectors but are processed as fixed strings. These will be impleme
 introducing a `ResourceFieldSelector` (json: `resourceFieldRef`) to extend the current
 implementation for `type DownwardAPIVolumeFile struct` and `type EnvVarSource struct`.
 
-The fields in `ResourceFieldSelector` are `containerName` to specify the name of a
+The fields in ResourceFieldSelector are `containerName` to specify the name of a
 container, `resource` to specify the type of a resource (cpu or memory), and `divisor`
-to specify the output format of values of exposed resources. The default value of `divisor`
-is `1` which means `cores` for cpu and `bytes` for memory. For `cpu`, `divisor`'s valid
+to specify the output format of values of exposed resources. The default value of divisor
+is `1` which means cores for cpu and bytes for memory. For cpu, divisor's valid
 values are `1m` (millicores), `1`(cores), and for memory, the valid values in fixed point integer
 (decimal) are `1`(bytes), `1k`(kilobytes), `1M`(megabytes), `1G`(gigabytes),
 `1T`(terabytes), `1P`(petabytes), `1E`(exabytes), and in their power-of-two equivalents `1Ki(kilobytes)`,
 `1Mi`(megabytes), `1Gi`(gigabytes), `1Ti`(terabytes), `1Pi`(petabytes), `1Ei`(exabytes).
-For more information about these resource formats, [see details](https://github.com/kubernetes/kubernetes/blob/master/docs/design/resources.md).
+For more information about these resource formats, [see details](resources.md).
 
 Also, the exposed values will be `ceiling` of the actual values in the requestd format in divisor.
-For example, if `requests.cpu` is `250m` (250 millicores) and the `divisor` by default is `1`, then
+For example, if requests.cpu is `250m` (250 millicores) and the divisor by default is `1`, then
 exposed value will be `1` core. It is because 250 millicores when converted to cores will be 0.25 and
 the ceiling of 0.25 is 1.
 
 ```
 type ResourceFieldSelector struct {
-        // Container name
-        ContainerName string `json:"containerName,omitempty"`
-        // Required: Resource to select
-        Resource string `json:"resource"`
-	// Specifies the output format of the exposed resources
-	Divisor resource.Quantity `json:"divisor,omitempty"`
+     // Container name
+     ContainerName string `json:"containerName,omitempty"`
+     // Required: Resource to select
+     Resource string `json:"resource"`
+     // Specifies the output format of the exposed resources
+     Divisor resource.Quantity `json:"divisor,omitempty"`
 }
 
 // Represents a single file containing information from the downward API
@@ -443,15 +443,15 @@ type DownwardAPIVolumeFile struct {
 // EnvVarSource represents a source for the value of an EnvVar.
 // Only one of its fields may be set.
 type EnvVarSource struct {
-   // Selects a resource of the container: only resources limits and requests
-   // (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.
-   ResourceFieldRef *ResourceFieldSelector `json:"resourceFieldRef,omitempty"`
-   // Selects a field of the pod; only name and namespace are supported.
-   FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
-   // Selects a key of a ConfigMap.
-   ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
-   // Selects a key of a secret in the pod's namespace.
-   SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty"`
+     // Selects a resource of the container: only resources limits and requests
+     // (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.
+     ResourceFieldRef *ResourceFieldSelector `json:"resourceFieldRef,omitempty"`
+     // Selects a field of the pod; only name and namespace are supported.
+     FieldRef *ObjectFieldSelector `json:"fieldRef,omitempty"`
+     // Selects a key of a ConfigMap.
+     ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
+     // Selects a key of a secret in the pod's namespace.
+     SecretKeyRef *SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 ```
 
@@ -520,6 +520,7 @@ spec:
               resource: limits.memory
               divisor: "1Mi"
 ```
+
 In the above example, the exposed values of CPU_LIMIT and MEMORY_LIMIT will be 1 (in cores) and 128 (in Mi), respectively.
 
 ```
@@ -628,6 +629,7 @@ spec:
             resourceFieldRef:
               resource: requests.cpu
 ```
+
 Note that the value of divisor by default is `1`. Now inside the container,
 the HEAP_SIZE (in bytes) and GOMAXPROCS (in cores) could be exported as:
 
