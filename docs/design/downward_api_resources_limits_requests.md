@@ -165,8 +165,7 @@ not necessarily as specified, and the selectors do not have to start with dot.
 | cpu_request | spec.containers[?(@.name=="container-name")].resources.requests.cpu|
 | memory_request |spec.containers[?(@.name=="container-name")].resources.requests.memory|
 
-Volumes are pod scoped, so a selector should be specified with a
-particular container name.
+Volumes are pod scoped, so a selector must be specified with a container name.
 
 Full json path selectors will use existing `type ObjectFieldSelector`
 to extend the current implementation for resources requests and limits.
@@ -323,8 +322,8 @@ selectors do not have to start with dot.
 | cpu_request | resources.requests.cpu |
 | memory_request | resources.requests.memory |
 
-Since environment variables are container scoped, the container name must
-be specified as part of the `containerSpecFieldRef` with volumes.
+Volumes are pod scoped, the container name must be specified as part of
+`containerSpecFieldRef` with them.
 
 #### Examples
 
@@ -485,8 +484,8 @@ Volume path names are examples only and not necessarily as specified.
 | cpu_request | requests.cpu |
 | memory_request | requests.memory |
 
-Since environment variables are container scoped, the container name must
-be specified.
+Volumes are pod scoped, the container name must be specified as part of
+`containerSpecFieldRef` with them.
 
 #### Examples
 
@@ -590,6 +589,12 @@ and rounded to integer) and memory in bytes. For example, memory request
 or limit of `64Mi` in the container spec will be output as `67108864`
 bytes, and cpu request or limit of `250m` (millicores) will be output as
 `256` of cpu shares.
+
+## Implementation approach
+
+The current implementation of this proposal will focus on the API with magic keys
+approach. The main reason for selecting this approach is that it might be
+easier to incorporate and extend resource specific functionality.
 
 ## Applied example
 
