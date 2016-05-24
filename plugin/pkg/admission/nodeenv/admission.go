@@ -22,15 +22,19 @@ var NamespaceNodeSelectors = []string{"kubernetes.io/node-selector"}
 
 func init() {
 	admission.RegisterPlugin("PodNodeEnvironment", func(client clientset.Interface, config io.Reader) (admission.Interface, error) {
-		return NewPodNodeEnvironment(client, readConfig(config))
+		pluginConfig := readConfig(config)
+		plugin := NewPodNodeEnvironment(client, pluginConfig.PodNodeEnvironmentPluginConfig["clusterDefaultNodeSelector"])
+		plugin.reflector.Run()
+		return plugin, nil
 	})
 }
 
 // podNodeEnvironment is an implementation of admission.Interface.
 type podNodeEnvironment struct {
 	*admission.Handler
-	client clientset.Interface
-	store  cache.Store
+	client    clientset.Interface
+	store     cache.Store
+	reflector *cache.Reflector
 	// global default node selector in a cluster, If a namespace is
 	// not assigned any node selector, it gets this by default.
 	clusterDefaultNodeSelector string
@@ -46,21 +50,21 @@ type pluginConfig struct {
 // The format in a file:
 // podNodeEnvironmentPluginConfig:
 //  clusterDefaultNodeSelector: <node-selectors-labels>
-func readConfig(config io.Reader) string {
+func readConfig(config io.Reader) *pluginConfig {
+	defaultConfig := &pluginConfig{}
 	if config == nil || reflect.ValueOf(config).IsNil() {
-		return ""
+		return defaultConfig
 	}
-	defaultConfig := pluginConfig{}
 	d := yaml.NewYAMLOrJSONDecoder(config, 4096)
 	for {
-		if err := d.Decode(&defaultConfig); err != nil {
+		if err := d.Decode(defaultConfig); err != nil {
 			if err != io.EOF {
 				continue
 			}
 		}
 		break
 	}
-	return defaultConfig.PodNodeEnvironmentPluginConfig["clusterDefaultNodeSelector"]
+	return defaultConfig
 }
 
 // Admit enforces that pod and its namespace node label selectors matches at least a node in the cluster.
@@ -106,7 +110,6 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 			return errors.NewInternalError(err)
 		}
 	}
-
 	namespaceNodeSelector, err := p.getNodeSelectorMap(namespace)
 	if err != nil {
 		return err
@@ -121,7 +124,7 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 	return nil
 }
 
-func NewPodNodeEnvironment(client clientset.Interface, clusterDefaultNodeSelector string) (admission.Interface, error) {
+func NewPodNodeEnvironment(client clientset.Interface, clusterDefaultNodeSelector string) *podNodeEnvironment {
 	// TODO: make it a shared cache to use between admission plugins
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 	reflector := cache.NewReflector(
@@ -137,13 +140,13 @@ func NewPodNodeEnvironment(client clientset.Interface, clusterDefaultNodeSelecto
 		store,
 		0,
 	)
-	reflector.Run()
 	return &podNodeEnvironment{
 		Handler: admission.NewHandler(admission.Create),
 		client:  client,
 		store:   store,
 		clusterDefaultNodeSelector: clusterDefaultNodeSelector,
-	}, nil
+		reflector:                  reflector,
+	}
 }
 
 func (p *podNodeEnvironment) defaultGetNamespace(name string) (*api.Namespace, error) {
@@ -162,7 +165,6 @@ func (p *podNodeEnvironment) getNodeSelectorMap(namespace *api.Namespace) (map[s
 	if len(namespace.ObjectMeta.Annotations) > 0 {
 		for _, annotation := range NamespaceNodeSelectors {
 			if ns, ok := namespace.ObjectMeta.Annotations[annotation]; ok {
-
 				labelsMap, err = labels.ConvertSelectorToLabelsMap(ns)
 				if err != nil {
 					return map[string]string{}, err
