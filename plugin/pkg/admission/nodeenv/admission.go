@@ -98,7 +98,6 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 	if err != nil {
 		return errors.NewInternalError(err)
 	}
-
 	if exists {
 		namespace = namespaceObj.(*api.Namespace)
 	} else {
