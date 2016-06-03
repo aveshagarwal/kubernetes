@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
@@ -31,6 +32,7 @@ func formatMap(m map[string]string) (fmtStr string) {
 	for key, value := range m {
 		fmtStr += fmt.Sprintf("%v=%q\n", key, value)
 	}
+	fmtStr = strings.TrimSuffix(fmtStr, "\n")
 
 	return
 }
