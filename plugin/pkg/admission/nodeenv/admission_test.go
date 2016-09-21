@@ -18,12 +18,15 @@ package nodeenv
 
 import (
 	"testing"
+	"time"
 
 	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/cache"
-	clientsetfake "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/fake"
+	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/fake"
+	"k8s.io/kubernetes/pkg/controller/informers"
 	"k8s.io/kubernetes/pkg/labels"
+	"k8s.io/kubernetes/pkg/util/wait"
 )
 
 // TestPodAdmission verifies various scenarios involving pod/namespace/global node label selectors
@@ -35,10 +38,13 @@ func TestPodAdmission(t *testing.T) {
 		},
 	}
 
-	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
-	store.Add(namespace)
-	mockClientset := clientsetfake.NewSimpleClientset()
-	handler := &podNodeEnvironment{client: mockClientset, store: store}
+	mockClient := &fake.Clientset{}
+	handler, informerFactory, err := newHandlerForTest(mockClient)
+	if err != nil {
+		t.Errorf("unexpected error initializing handler: %v", err)
+	}
+	informerFactory.Start(wait.NeverStop)
+
 	pod := &api.Pod{
 		ObjectMeta: api.ObjectMeta{Name: "testPod", Namespace: "testNamespace"},
 	}
@@ -118,9 +124,10 @@ func TestPodAdmission(t *testing.T) {
 	for _, test := range tests {
 		if !test.ignoreTestNamespaceNodeSelector {
 			namespace.ObjectMeta.Annotations = map[string]string{"kubernetes.io/node-selector": test.namespaceNodeSelector}
+			handler.namespaceInformer.GetStore().Update(namespace)
 		}
-		handler.store.Update(namespace)
-		handler.clusterDefaultNodeSelector = test.defaultNodeSelector
+		handler.clusterNodeSelectors = make(map[string]string)
+		handler.clusterNodeSelectors["clusterDefaultNodeSelector"] = test.defaultNodeSelector
 		pod.Spec = api.PodSpec{NodeSelector: test.podNodeSelector}
 
 		err := handler.Admit(admission.NewAttributesRecord(pod, nil, api.Kind("Pod").WithVersion("version"), "testNamespace", namespace.ObjectMeta.Name, api.Resource("pods").WithVersion("version"), "", admission.Create, nil))
@@ -143,9 +150,20 @@ func TestHandles(t *testing.T) {
 		admission.Connect: false,
 		admission.Delete:  false,
 	} {
-		nodeEnvionment := NewPodNodeEnvironment(nil, "")
+		nodeEnvionment := NewPodNodeEnvironment(nil, nil)
 		if e, a := shouldHandle, nodeEnvionment.Handles(op); e != a {
 			t.Errorf("%v: shouldHandle=%t, handles=%t", op, e, a)
 		}
 	}
+}
+
+// newHandlerForTest returns the admission controller configured for testing.
+func newHandlerForTest(c clientset.Interface) (*podNodeEnvironment, informers.SharedInformerFactory, error) {
+	f := informers.NewSharedInformerFactory(c, 5*time.Minute)
+	handler := NewPodNodeEnvironment(c, nil)
+	plugins := []admission.Interface{handler}
+	pluginInitializer := admission.NewPluginInitializer(f)
+	pluginInitializer.Initialize(plugins)
+	err := admission.Validate(plugins)
+	return handler, f, err
 }

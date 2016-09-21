@@ -28,10 +28,9 @@ import (
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/client/cache"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	"k8s.io/kubernetes/pkg/controller/informers"
 	"k8s.io/kubernetes/pkg/labels"
-	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/yaml"
-	"k8s.io/kubernetes/pkg/watch"
 )
 
 var NamespaceNodeSelectors = []string{"kubernetes.io/node-selector"}
@@ -39,8 +38,7 @@ var NamespaceNodeSelectors = []string{"kubernetes.io/node-selector"}
 func init() {
 	admission.RegisterPlugin("PodNodeEnvironment", func(client clientset.Interface, config io.Reader) (admission.Interface, error) {
 		pluginConfig := readConfig(config)
-		plugin := NewPodNodeEnvironment(client, pluginConfig.PodNodeEnvironmentPluginConfig["clusterDefaultNodeSelector"])
-		plugin.reflector.Run()
+		plugin := NewPodNodeEnvironment(client, pluginConfig.PodNodeEnvironmentPluginConfig)
 		return plugin, nil
 	})
 }
@@ -48,12 +46,10 @@ func init() {
 // podNodeEnvironment is an implementation of admission.Interface.
 type podNodeEnvironment struct {
 	*admission.Handler
-	client    clientset.Interface
-	store     cache.Store
-	reflector *cache.Reflector
-	// global default node selector in a cluster, If a namespace is
-	// not assigned any node selector, it gets this by default.
-	clusterDefaultNodeSelector string
+	client            clientset.Interface
+	namespaceInformer cache.SharedIndexInformer
+	// global default node selector and namespace whitelists in a cluster.
+	clusterNodeSelectors map[string]string
 }
 
 type pluginConfig struct {
@@ -66,6 +62,8 @@ type pluginConfig struct {
 // The format in a file:
 // podNodeEnvironmentPluginConfig:
 //  clusterDefaultNodeSelector: <node-selectors-labels>
+//  namespace1: <node-selectors-labels>
+//  namespace2: <node-selectors-labels>
 func readConfig(config io.Reader) *pluginConfig {
 	defaultConfig := &pluginConfig{}
 	if config == nil || reflect.ValueOf(config).IsNil() {
@@ -101,11 +99,15 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 		return nil
 	}
 
+	if !p.WaitForReady() {
+		return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
+	}
+
 	name := pod.Name
 	nsName := a.GetNamespace()
 	var namespace *api.Namespace
 
-	namespaceObj, exists, err := p.store.Get(&api.Namespace{
+	namespaceObj, exists, err := p.namespaceInformer.GetStore().Get(&api.Namespace{
 		ObjectMeta: api.ObjectMeta{
 			Name:      nsName,
 			Namespace: "",
@@ -139,29 +141,24 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 	return nil
 }
 
-func NewPodNodeEnvironment(client clientset.Interface, clusterDefaultNodeSelector string) *podNodeEnvironment {
-	// TODO: make it a shared cache to use between admission plugins
-	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
-	reflector := cache.NewReflector(
-		&cache.ListWatch{
-			ListFunc: func(options api.ListOptions) (runtime.Object, error) {
-				return client.Core().Namespaces().List(options)
-			},
-			WatchFunc: func(options api.ListOptions) (watch.Interface, error) {
-				return client.Core().Namespaces().Watch(options)
-			},
-		},
-		&api.Namespace{},
-		store,
-		0,
-	)
+func NewPodNodeEnvironment(client clientset.Interface, clusterNodeSelectors map[string]string) *podNodeEnvironment {
 	return &podNodeEnvironment{
-		Handler: admission.NewHandler(admission.Create),
-		client:  client,
-		store:   store,
-		clusterDefaultNodeSelector: clusterDefaultNodeSelector,
-		reflector:                  reflector,
+		Handler:              admission.NewHandler(admission.Create),
+		client:               client,
+		clusterNodeSelectors: clusterNodeSelectors,
 	}
+}
+
+func (p *podNodeEnvironment) SetInformerFactory(f informers.SharedInformerFactory) {
+	p.namespaceInformer = f.Namespaces().Informer()
+	p.SetReadyFunc(p.namespaceInformer.HasSynced)
+}
+
+func (p *podNodeEnvironment) Validate() error {
+	if p.namespaceInformer == nil {
+		return fmt.Errorf("missing namespaceInformer")
+	}
+	return nil
 }
 
 func (p *podNodeEnvironment) defaultGetNamespace(name string) (*api.Namespace, error) {
@@ -195,7 +192,7 @@ func (p *podNodeEnvironment) getNodeSelectorMap(namespace *api.Namespace) (map[s
 		}
 	}
 	if !found {
-		selector, err = labels.ConvertSelectorToLabelsMap(p.clusterDefaultNodeSelector)
+		selector, err = labels.ConvertSelectorToLabelsMap(p.clusterNodeSelectors["clusterDefaultNodeSelector"])
 		if err != nil {
 			return map[string]string{}, err
 		}
