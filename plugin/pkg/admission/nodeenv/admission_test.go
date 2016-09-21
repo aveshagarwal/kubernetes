@@ -52,6 +52,7 @@ func TestPodAdmission(t *testing.T) {
 	tests := []struct {
 		defaultNodeSelector             string
 		namespaceNodeSelector           string
+		whitelist                       string
 		podNodeSelector                 map[string]string
 		mergedNodeSelector              map[string]string
 		ignoreTestNamespaceNodeSelector bool
@@ -120,6 +121,23 @@ func TestPodAdmission(t *testing.T) {
 			admit:                 false,
 			testName:              "Conflicting pod and namespace node selector, multiple labels",
 		},
+		{
+			defaultNodeSelector:   "env=dev",
+			namespaceNodeSelector: "infra=false, env = dev",
+			whitelist:             "env=dev, infra=false, color=blue",
+			podNodeSelector:       map[string]string{"env": "dev", "color": "blue"},
+			mergedNodeSelector:    map[string]string{"infra": "false", "env": "dev", "color": "blue"},
+			admit:                 true,
+			testName:              "Merged pod node selectors satisfy the whitelist",
+		},
+		{
+			defaultNodeSelector:   "env=dev",
+			namespaceNodeSelector: "infra=false, env = dev",
+			whitelist:             "env=dev, infra=true, color=blue",
+			podNodeSelector:       map[string]string{"env": "dev", "color": "blue"},
+			admit:                 false,
+			testName:              "Merged pod node selectors conflict with the whitelist",
+		},
 	}
 	for _, test := range tests {
 		if !test.ignoreTestNamespaceNodeSelector {
@@ -128,6 +146,7 @@ func TestPodAdmission(t *testing.T) {
 		}
 		handler.clusterNodeSelectors = make(map[string]string)
 		handler.clusterNodeSelectors["clusterDefaultNodeSelector"] = test.defaultNodeSelector
+		handler.clusterNodeSelectors[namespace.Name] = test.whitelist
 		pod.Spec = api.PodSpec{NodeSelector: test.podNodeSelector}
 
 		err := handler.Admit(admission.NewAttributesRecord(pod, nil, api.Kind("Pod").WithVersion("version"), "testNamespace", namespace.ObjectMeta.Name, api.Resource("pods").WithVersion("version"), "", admission.Create, nil))

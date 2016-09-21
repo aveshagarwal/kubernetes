@@ -138,6 +138,16 @@ func (p *podNodeEnvironment) Admit(a admission.Attributes) error {
 
 	// modify pod node selector = namespace node selector + current pod node selector
 	pod.Spec.NodeSelector = labels.Merge(namespaceNodeSelector, pod.Spec.NodeSelector)
+
+	whitelist, err := labels.ConvertSelectorToLabelsMap(p.clusterNodeSelectors[namespace.Name])
+	if err != nil {
+		return err
+	}
+
+	// whitelist verification
+	if !labels.AreLabelsInWhiteList(pod.Spec.NodeSelector, whitelist) {
+		return errors.NewForbidden(resource, name, fmt.Errorf("pod node label selector labels conflict with its namespace whitelist"))
+	}
 	return nil
 }
 
