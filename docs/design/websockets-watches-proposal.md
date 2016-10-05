@@ -169,6 +169,11 @@ the addresses the performance impact on etcd (if any) as part of this proposal.
 
 What client/user is allowed to request watches on what resources.
 
+## Roadmap
+
+1. The firt solution above for kube 1.5.
+2. The other solution for kube 1.6 and beyond.
+
 ## References
 
 1. https://github.com/kubernetes/kubernetes/issues/1685
