@@ -36,8 +36,8 @@ Documentation for other releases can be found at
 
 ## Abstract
 
-This proposal aims to enable kubernetes watch APIs to allow watching more than 6 resources
-over WebSockets to a single domain.
+This proposal aims to enable kubernetes watch APIs to allow watching more than one resource
+over a WebSocket connection to a single domain.
 
 ## Background
 
