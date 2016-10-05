@@ -84,7 +84,7 @@ The steps in this solution are:
 /api/v1/watch/pods?resourceVersion=4&timeoutSeconds=319,nodes?resourceVersion=6&timeoutSeconds=280
 ```
 
-A client opens a WebSocket connection to a kube api server and sends the above watch request to the server.
+  A client opens a WebSocket connection to a kube api server and sends the above watch request to the server.
 
 2. The API server's resthandler in `pkg/apiserver/resthandler.go` identifies it as a watch on multiple resources. 
 The request is routed to WebSocket handler `in pkg/apiserver/watch.go` via `serveWatch()` in `pkg/apiserver/resthandler.go`.
@@ -112,7 +112,18 @@ The resthandler validates that requested resources are indeed one of the existin
 
 This solution also requires limiting number of resources to watch per request, as allowing
 number of resources without upper bound would lead to an increased amount of response data that
-might overwhelm the connection. We might start something like with `allowed_number_of_request` <= 5 or 10.
+might overwhelm the connection.
+
+```
+type WatchServer struct {
+watching []watch.Interface
+.
+.
+maxAllowedRequest int32
+}
+```
+
+Where `maxAllowedRequest` could be something `5` or `10` (or something else).
 
 ## Impact of more watches on etcd
 
