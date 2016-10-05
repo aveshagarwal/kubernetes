@@ -145,6 +145,9 @@ while the previous watch is still open over the same connection.
 7. The server may close the connection if all watches are finished for whatever reason or
 the client closes the connection.
 
+This solution is different from the previous one because watch requests are not sent
+in bulk in the begining as in the previous solution.
+
 #### Implementation details
 
 To-Do
