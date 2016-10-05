@@ -77,7 +77,7 @@ Here we discuss a solution to address the problem.
 
 The steps in this solution are:
 
-1. Clients should be able to specify watch request as follows:
+* Clients should be able to specify watch request as follows:
 
 ```
 /api/v1/watch/pods,nodes,rc,services
@@ -86,13 +86,13 @@ The steps in this solution are:
 
   A client opens a WebSocket connection to a kube api server and sends the above watch request to the server.
 
-2. The API server's resthandler in `pkg/apiserver/resthandler.go` identifies it as a watch on multiple resources. 
+* The API server's resthandler in `pkg/apiserver/resthandler.go` identifies it as a watch on multiple resources. 
 The request is routed to WebSocket handler `in pkg/apiserver/watch.go` via `serveWatch()` in `pkg/apiserver/resthandler.go`.
 
-3. The `serveWatch()` in `pkg/apiserver/resthandler.go` parses the request and creates a WebSocket
+* The `serveWatch()` in `pkg/apiserver/resthandler.go` parses the request and creates a WebSocket
 server to handles multiple watches. 
 
-4. The WebSocket server in `pkg/apiserver/watch.go` creates a slice of watches for resources.
+* The WebSocket server in `pkg/apiserver/watch.go` creates a slice of watches for resources.
 
 ```
 type WatchServer struct {
@@ -102,7 +102,7 @@ watching []watch.Interface
 }
 ```
 
-5. The WebSocket handler HandleWS in `pkg/apiserver/watch.go` handles all watches.
+* The WebSocket handler HandleWS in `pkg/apiserver/watch.go` handles all watches.
 
 #### Validation
 
