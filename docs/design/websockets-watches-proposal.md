@@ -69,9 +69,9 @@ to a single domain.
 2. 1. web based system monitoring where it may be desired to watch more than 6 resources simultaneously
 to have a more comprehensive view of system health.
 
-## Solution
+## Solutions
 
-Here we discuss a solution to address the problem.
+Here we discuss two solutions to address the problem.
 
 ### A watch request with multiple resources 
 
@@ -125,19 +125,46 @@ maxAllowedRequest int32
 
 Where `maxAllowedRequest` could be something `5` or `10` (or something else).
 
-## Impact of more watches on etcd
+### Multiple watch requests at different times over a WebSocket Connection
+
+In this solution, the expected steps are:
+
+1. A client opens a WebSocket connection to a Kubernetes API server.
+
+2. The client then sends a watch request for a particular resource over the connection.
+
+3. The api server responds to the request.
+
+4. The client then may open another watch request on the same connection for a different resource
+while the previous watch is still open over the same connection.
+
+5. The api server responds to the another watch request over the same connection.
+
+6. The steps 4 and 5 are repeated as needed.
+
+7. The server may close the connection if all watches are finished for whatever reason or
+the client closes the connection.
+
+#### Implementation details
+
+To-Do
+
+## Future work
+
+### Impact of more watches on etcd
 
 In kubernetes, when a client sends a watch request to kubernetes apiserver, the apiserver opens an watch on etcd
 for each watch request. With the growing number of resource types in kubernetes, and the need for watching more
 resources simultaneously, it is going to put even more burden on etcd's performance and kubernetes performance
-in general. This performance impact on etcd needs to be addressed and there is a proposal [apiserver-watch](https://github.com/kubernetes/kubernetes/blob/release-1.4/docs/proposals/apiserver-watch.md) 
+in general. This performance impact on etcd needs to be addressed and there is a proposal [apiserver-watch](https://github.com/kubernetes/kubernetes/blob/release-1.4/docs/proposals/apiserver-watch.md)
 that deals with it.
 
 Although the above solution requires opening more watches simultaneously, the current/short plan for now is to not
-the addresses the performance impact on etcd (if any) as part of this proposal.  
+the addresses the performance impact on etcd (if any) as part of this proposal.
 
-## Future solution
-To-Do
+### Security Considerations
+
+What client/user is allowed to request watches on what resources.
 
 ## References
 
