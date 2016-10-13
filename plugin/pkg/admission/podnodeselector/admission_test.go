@@ -181,7 +181,7 @@ func newHandlerForTest(c clientset.Interface) (*podNodeSelector, informers.Share
 	f := informers.NewSharedInformerFactory(c, 5*time.Minute)
 	handler := NewPodNodeSelector(c, nil)
 	plugins := []admission.Interface{handler}
-	pluginInitializer := admission.NewPluginInitializer(f)
+	pluginInitializer := admission.NewPluginInitializer(f, nil)
 	pluginInitializer.Initialize(plugins)
 	err := admission.Validate(plugins)
 	return handler, f, err
