@@ -1779,15 +1779,15 @@ func validateTaintEffect(effect *api.TaintEffect, allowEmpty bool, fldPath *fiel
 
 	allErrors := field.ErrorList{}
 	switch *effect {
-	// TODO: Replace next line with subsequent commented-out line when implement TaintEffectNoScheduleNoAdmit, TaintEffectNoScheduleNoAdmitNoExecute.
-	case api.TaintEffectNoSchedule, api.TaintEffectPreferNoSchedule:
+	// TODO: Replace next line with subsequent commented-out line when implement TaintEffectNoScheduleNoAdmitNoExecute.
+	case api.TaintEffectNoSchedule, api.TaintEffectPreferNoSchedule, api.TaintEffectNoScheduleNoAdmit:
 		// case api.TaintEffectNoSchedule, api.TaintEffectPreferNoSchedule, api.TaintEffectNoScheduleNoAdmit, api.TaintEffectNoScheduleNoAdmitNoExecute:
 	default:
 		validValues := []string{
 			string(api.TaintEffectNoSchedule),
 			string(api.TaintEffectPreferNoSchedule),
-			// TODO: Uncomment this block when implement TaintEffectNoScheduleNoAdmit, TaintEffectNoScheduleNoAdmitNoExecute.
-			// string(api.TaintEffectNoScheduleNoAdmit),
+			string(api.TaintEffectNoScheduleNoAdmit),
+			// TODO: Uncomment this block when implement TaintEffectNoScheduleNoAdmitNoExecute.
 			// string(api.TaintEffectNoScheduleNoAdmitNoExecute),
 		}
 		allErrors = append(allErrors, field.NotSupported(fldPath, effect, validValues))

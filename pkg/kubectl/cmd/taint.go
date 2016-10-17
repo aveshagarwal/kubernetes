@@ -59,7 +59,7 @@ var (
 		A taint consists of a key, value, and effect. As an argument here, it is expressed as key=value:effect.
 		The key must begin with a letter or number, and may contain letters, numbers, hyphens, dots, and underscores, up to %[1]d characters.
 		The value must begin with a letter or number, and may contain letters, numbers, hyphens, dots, and underscores, up to %[1]d characters.
-		The effect must be NoSchedule or PreferNoSchedule.
+		The effect must be NoSchedule, PreferNoSchedule and NoScheduleNoAdmit.
 		Currently taint can only apply to node.`)
 	taint_example = dedent.Dedent(`
 		# Update node 'foo' with a taint with key 'dedicated' and value 'special-user' and effect 'NoSchedule'.
@@ -181,7 +181,7 @@ func parseTaints(spec []string) ([]api.Taint, []api.Taint, error) {
 				return nil, nil, fmt.Errorf("invalid taint spec: %v, %s", taintSpec, strings.Join(errs, "; "))
 			}
 
-			if parts2[1] != string(api.TaintEffectNoSchedule) && parts2[1] != string(api.TaintEffectPreferNoSchedule) {
+			if parts2[1] != string(api.TaintEffectNoSchedule) && parts2[1] != string(api.TaintEffectPreferNoSchedule) && parts2[1] != string(api.TaintEffectNoScheduleNoAdmit) {
 				return nil, nil, fmt.Errorf("invalid taint spec: %v, unsupported taint effect", taintSpec)
 			}
 
