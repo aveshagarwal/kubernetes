@@ -2957,7 +2957,7 @@ message Taint {
 
   // Required. The effect of the taint on pods
   // that do not tolerate the taint.
-  // Valid effects are NoSchedule and PreferNoSchedule.
+  // Valid effects are NoSchedule, PreferNoSchedule, and NoScheduleNoAdmit.
   optional string effect = 3;
 }
 
@@ -2978,7 +2978,7 @@ message Toleration {
   optional string value = 3;
 
   // Effect indicates the taint effect to match. Empty means match all taint effects.
-  // When specified, allowed values are NoSchedule and PreferNoSchedule.
+  // When specified, allowed values are NoSchedule, PreferNoSchedule and NoScheduleNoAdmit.
   optional string effect = 4;
 }
 
